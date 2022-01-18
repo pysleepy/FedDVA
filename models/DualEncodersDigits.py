@@ -181,8 +181,8 @@ class DualEncodersDigits:
         self.in_channel = 3
         # self.hidden_dims = [32, 64, 128, 256, 512]
         self.hidden_dims = [8, 16, 32, 64, 128]
-        self.d_z = 2
-        self.d_c = 2
+        self.d_z = 10
+        self.d_c = 10
 
         self.lbd_dec = 1
         self.lbd_z = 0.01
