@@ -185,9 +185,9 @@ class DualEncodersDigits:
         self.d_c = 10
 
         self.lbd_dec = 1
-        self.lbd_z = 0.01
-        self.lbd_c = 0.01
-        self.lbd_cc = 0.01
+        self.lbd_z = 100
+        self.lbd_c = 100
+        self.lbd_cc = 100
         self.xi = 0.2
         self.n_resample = 5
 
