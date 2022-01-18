@@ -1,4 +1,7 @@
 import os
+
+import numpy as np
+
 import matplotlib.pyplot as plt
 
 import torch
@@ -32,8 +35,10 @@ client_root = "clients/digits/"
 client_ids = [c_id for c_id, _ in enumerate(tr_loaders)]
 
 # init models
-global_model = DualEncodersDigits(args.device, args.shared_modules, args.optimizer_func)
-client_models = [DualEncodersDigits(args.device, args.shared_modules, args.optimizer_func) for client in client_ids]
+global_model = DualEncodersDigits(-1, args.shared_modules, args.optimizer_func, args.criterion)
+global_model.model = global_model.model.to(args.device)
+client_models = [DualEncodersDigits(client, args.shared_modules, args.optimizer_func, args.criterion)
+                 for client in client_ids]
 # allocate global_model to each client to ensure the encoders are trained from the same initialization
 for client_model in client_models:
     client_model.update_model(global_model)
@@ -44,17 +49,36 @@ for r in range(args.n_rounds):
     for client_id, (tr_loader, ts_loader, n_sample, client_model) in \
             enumerate(zip(tr_loaders, ts_loaders, n_tr_samples, client_models)):
         print("client: " + str(client_id))
-        epoch_loss = client_model.fit(client_id
+        epoch_loss = client_model.fit(args.device
+                                      , r
                                       , tr_loader
                                       , args.epoch_encoder
                                       , args.epoch_decoder
-                                      , args.criterion
                                       , args.learning_rate)
         outputs = client_model.evaluate(client_id, ts_loader, args.criterion)
     for para in global_model.model.parameters():
         para.data = torch.zeros_like(para.data)
-    global_model.model = global_model.model.to(args.device)
     global_model = aggregate(global_model, client_models, n_tr_samples)
     for client_model in client_models:
         client_model.update_model(global_model)
 
+"""
+# evaluate
+ts_loader = ts_loaders[0]
+DEMnist = client_models[0]
+i = np.random.randint(1000)
+for data in ts_loader:
+    x, y = data
+    x_hat = DEMnist.model(x.to(args.device))
+    rec = x_hat[0].detach().to("cpu")
+    img, rec = x[i], rec[i]
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.title("origin")
+    plt.imshow(img.squeeze(dim=0).numpy())
+    plt.subplot(1, 2, 2)
+    plt.title("rec")
+    plt.imshow(rec.squeeze(dim=0).numpy())
+    plt.show()
+    break
+"""

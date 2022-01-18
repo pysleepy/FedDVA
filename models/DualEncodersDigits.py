@@ -1,5 +1,7 @@
 import logging
 
+import numpy as np
+
 import torch
 import torch.nn as nn
 from torch.functional import F
@@ -171,10 +173,10 @@ class DualEncoder(nn.Module):
 
 
 class DualEncodersDigits:
-    def __init__(self, device, shared_module, optimizer_func):
-        self.device = device
+    def __init__(self, client_id, shared_module, optimizer_func, criterion):
         self.shared_list = shared_module
         self.optimizer = optimizer_func
+        self.criterion_dec = criterion
 
         self.in_channel = 3
         # self.hidden_dims = [32, 64, 128, 256, 512]
@@ -183,33 +185,63 @@ class DualEncodersDigits:
         self.d_c = 2
 
         self.lbd_dec = 1
-        self.lbd_z = 0.01
-        self.lbd_c = 0.01
+        self.lbd_z = 1
+        self.lbd_c = 1
+        self.lbd_cc = 1
         self.xi = 0.5
-
-        self.model = DualEncoder(self.in_channel, self.hidden_dims, self.d_z, self.d_c)
-        self.round = -1
-        self.client_id = -1
         self.n_resample = 1
 
-    def fit(self, client_id, tr_loader, epoch_encoder, epoch_decoder, criterion, lr):
+        self.model = DualEncoder(self.in_channel, self.hidden_dims, self.d_z, self.d_c)
+        self.round = []
         self.client_id = client_id
-        self.model = self.model.to(self.device)
+
+    def fit(self, device, round, tr_loader, epoch_encoder, epoch_decoder, lr):
+        self.model = self.model.to(device)
+        self.round.append(round)
         self.model.train()
 
-        criterion_dec = criterion
         optimizer_backbone = self.optimizer(self.model.backbone.parameters(), lr=lr)
         optimizer_encoder_z = self.optimizer(self.model.encoder_z.parameters(), lr=lr)
         optimizer_encoder_c = self.optimizer(self.model.encoder_c.parameters(), lr=lr)
         optimizer_dec = self.optimizer(self.model.decoder.parameters(), lr=lr)
 
-        for ep in range(epoch_encoder):
-            logging.info("Round: {:d}, Client: {:d}, Epoch: {:d}".format(self.round, self.client_id, ep))
-            print("Round: {:d}, Client: {:d}, Epoch: {:d}".format(self.round, self.client_id, ep))
+        for ep in range(epoch_decoder):
+            logging.info("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(round, self.client_id, ep))
+            print("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(round, self.client_id, ep))
+            epoch_loss = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
                 x, y = data
-                x, y = x.to(self.device), y.to(self.device)
+                x, y = x.to(device), y.to(device)
+                x = x.repeat(self.n_resample, 1, 1, 1)
+                y = y.repeat(self.n_resample, 1, 1, 1)
+
+                optimizer_dec.zero_grad()
+                x_hat, _, _, _, _, _, _ = self.model(x)
+
+                # loss
+                loss_dec = self.criterion_dec(x_hat, x)
+                # loss_diff = criterion_dec(x_c, x_z)
+                loss = torch.mean(loss_dec, dim=0)
+                epoch_loss.append(loss.item())
+                loss = self.lbd_dec * loss_dec
+                loss.backward()
+                optimizer_dec.step()
+
+            logging.info('Epoch Decoder Loss: ' + str(np.mean(epoch_loss)))
+            print('Epoch Decoder Loss: ' + str(np.mean(epoch_loss)))
+
+        for ep in range(epoch_encoder):
+            logging.info("Round: {:d}, Client: {:d}, Epoch Enc: {:d}".format(round, self.client_id, ep))
+            print("Round: {:d}, Client: {:d}, Epoch Enc: {:d}".format(round, self.client_id, ep))
+            epoch_dec = []
+            epoch_dkl_z = []
+            epoch_dkl_c = []
+            epoch_constr_c = []
+            for b_id, data in enumerate(tr_loader):
+                # loading data
+                x, y = data
+                x, y = x.to(device), y.to(device)
                 x = x.repeat(self.n_resample, 1, 1, 1)
                 y = y.repeat(self.n_resample, 1, 1, 1)
 
@@ -221,7 +253,7 @@ class DualEncodersDigits:
                 x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x)
 
                 # loss
-                loss_dec = criterion_dec(x_hat, x)
+                loss_dec = self.criterion_dec(x_hat, x)
                 # loss_diff = criterion_dec(x_c, x_z)
 
                 mu_z_prior = torch.zeros_like(mu_z, dtype=torch.float)
@@ -233,21 +265,30 @@ class DualEncodersDigits:
                 loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)
                 loss_constr_c = loss_reg_c(mu_c, log_var_c)
 
+                epoch_dec.append(torch.mean(loss_dec, dim=0).item())
+                epoch_dkl_z.append(torch.mean(loss_dkl_z, dim=0).item())
+                epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
+                epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
+
                 loss = self.lbd_dec * loss_dec \
                     + self.lbd_z * loss_dkl_z \
                     + self.lbd_c * loss_dkl_c \
-                    + self.lbd_c * F.relu(self.xi + loss_constr_c - loss_dkl_c)
+                    + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
 
                 loss = torch.mean(loss, dim=0)
-
-                logging.info(loss.item())
-                print(loss.item())
                 loss.backward()
-
                 optimizer_backbone.step()
                 optimizer_encoder_z.step()
                 optimizer_encoder_c.step()
-                optimizer_dec.step()
+
+            logging.info('Epoch Decoder Loss: ' + str(np.mean(epoch_dec)))
+            print('Epoch Decoder Loss: ' + str(np.mean(epoch_dec)))
+            logging.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
+            print('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
+            logging.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
+            print('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
+            logging.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
+            print('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
 
     def generate(self, z, c):
         self.model = self.model.to(self.device)
