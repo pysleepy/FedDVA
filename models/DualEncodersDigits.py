@@ -205,6 +205,8 @@ class DualEncodersDigits:
         optimizer_encoder_c = self.optimizer(self.model.encoder_c.parameters(), lr=lr)
         optimizer_dec = self.optimizer(self.model.decoder.parameters(), lr=lr)
 
+        logging.info("Optimizing Decoder")
+        print("Optimizing Decoder")
         for ep in range(epoch_decoder):
             logging.info("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(round, self.client_id, ep))
             print("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(round, self.client_id, ep))
@@ -231,6 +233,8 @@ class DualEncodersDigits:
             logging.info('Epoch Decoder Loss: ' + str(np.mean(epoch_loss)))
             print('Epoch Decoder Loss: ' + str(np.mean(epoch_loss)))
 
+        logging.info("Optimizing Encoder")
+        print("Optimizing Encoder")
         for ep in range(epoch_encoder):
             logging.info("Round: {:d}, Client: {:d}, Epoch Enc: {:d}".format(round, self.client_id, ep))
             print("Round: {:d}, Client: {:d}, Epoch Enc: {:d}".format(round, self.client_id, ep))
