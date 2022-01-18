@@ -53,6 +53,7 @@ for r in range(args.n_rounds):
         outputs = client_model.evaluate(client_id, ts_loader, args.criterion)
     for para in global_model.model.parameters():
         para.data = torch.zeros_like(para.data)
+    global_model.model = global_model.model.to(args.device)
     global_model = aggregate(global_model, client_models, n_tr_samples)
     for client_model in client_models:
         client_model.update_model(global_model)
