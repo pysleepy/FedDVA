@@ -129,7 +129,7 @@ class Decoder(nn.Module):
                                                       , kernel_size=3, stride=2, padding=1, output_padding=1)
                                    , nn.BatchNorm2d(self.hidden_dims[-1])
                                    , nn.LeakyReLU()
-                                   , nn.Conv2d(self.hidden_dims[-1], out_channels=1, kernel_size=3, padding=1)
+                                   , nn.Conv2d(self.hidden_dims[-1], out_channels=3, kernel_size=3, padding=1)
                                    , nn.Tanh())
         self.layers.append(last_layer)
 
@@ -294,10 +294,10 @@ class DualEncodersDigits:
             logging.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
             print('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
 
-    def generate(self, z, c):
-        self.model = self.model.to(self.device)
+    def generate(self, device, z, c):
+        self.model = self.model.to(device)
         self.model.eval()
-        z, c = z.to(self.device), c.to(self.device)
+        z, c = z.to(device), c.to(device)
         return self.model.generate(z, c)
 
     def update_model(self, model_source):
