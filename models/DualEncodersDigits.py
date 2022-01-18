@@ -112,22 +112,22 @@ class Decoder(nn.Module):
             cur_layer = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[l_id], self.hidden_dims[l_id + 1]
                                                          , kernel_size=3, stride=2
                                                          , padding=1, output_padding=1)
-                                      # , nn.BatchNorm2d(self.hidden_dims[l_id + 1])
+                                      , nn.BatchNorm2d(self.hidden_dims[l_id + 1])
                                       , nn.LeakyReLU())
             self.layers.append(cur_layer)
         last_but_two = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[-3], self.hidden_dims[-2]
                                                         , kernel_size=3, stride=2, padding=1, output_padding=0)
-                                     # , nn.BatchNorm2d(self.hidden_dims[-2])
+                                     , nn.BatchNorm2d(self.hidden_dims[-2])
                                      , nn.LeakyReLU())
         self.layers.append(last_but_two)
         last_but_one = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[-2], self.hidden_dims[-1]
                                                         , kernel_size=3, stride=2, padding=1, output_padding=1)
-                                     # , nn.BatchNorm2d(self.hidden_dims[-1])
+                                     , nn.BatchNorm2d(self.hidden_dims[-1])
                                      , nn.LeakyReLU())
         self.layers.append(last_but_one)
         last_layer = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[-1], self.hidden_dims[-1]
                                                       , kernel_size=3, stride=2, padding=1, output_padding=1)
-                                   # , nn.BatchNorm2d(self.hidden_dims[-1])
+                                   , nn.BatchNorm2d(self.hidden_dims[-1])
                                    , nn.LeakyReLU()
                                    , nn.Conv2d(self.hidden_dims[-1], out_channels=1, kernel_size=3, padding=1)
                                    , nn.Tanh())
