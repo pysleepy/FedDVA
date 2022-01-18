@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-
 import matplotlib.pyplot as plt
 
 import torch
@@ -62,23 +61,21 @@ for r in range(args.n_rounds):
     for client_model in client_models:
         client_model.update_model(global_model)
 
-"""
-# evaluate
+
 ts_loader = ts_loaders[0]
 DEMnist = client_models[0]
-i = np.random.randint(1000)
+i = np.random.randint(64)
 for data in ts_loader:
     x, y = data
-    x_hat = DEMnist.model(x.to(args.device))
-    rec = x_hat[0].detach().to("cpu")
-    img, rec = x[i], rec[i]
+    x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = DEMnist.model(x.to(args.device))
+    rec = x_hat.detach().to("cpu")
+    img, rec = np.transpose(x[i].numpy(), [1,2,0]), np.transpose(rec[i].numpy(), [1,2,0])
     plt.figure()
     plt.subplot(1, 2, 1)
     plt.title("origin")
-    plt.imshow(img.squeeze(dim=0).numpy())
+    plt.imshow(img)
     plt.subplot(1, 2, 2)
     plt.title("rec")
-    plt.imshow(rec.squeeze(dim=0).numpy())
+    plt.imshow(rec)
     plt.show()
     break
-"""

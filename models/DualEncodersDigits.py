@@ -188,8 +188,8 @@ class DualEncodersDigits:
         self.lbd_z = 0.01
         self.lbd_c = 0.01
         self.lbd_cc = 0.01
-        self.xi = 0.5
-        self.n_resample = 1
+        self.xi = 0.2
+        self.n_resample = 5
 
         self.model = DualEncoder(self.in_channel, self.hidden_dims, self.d_z, self.d_c)
         self.round = []
