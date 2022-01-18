@@ -56,3 +56,4 @@ for r in range(args.n_rounds):
     global_model = aggregate(global_model, client_models, n_tr_samples)
     for client_model in client_models:
         client_model.update_model(global_model)
+
