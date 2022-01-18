@@ -59,7 +59,7 @@ class Backbone(nn.Module):
         for h_dim in hidden_dims:
             cur_layer = nn.Sequential(nn.Conv2d(cur_in_channels, out_channels=h_dim, kernel_size=3
                                                                , stride=2, padding=1)
-                                      # , nn.BatchNorm2d(h_dim)
+                                      , nn.BatchNorm2d(h_dim)
                                       , nn.LeakyReLU())
             self.layers.append(cur_layer)
             cur_in_channels = h_dim
