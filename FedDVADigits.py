@@ -21,6 +21,14 @@ class args:
     epoch_encoder = 1
     epoch_decoder = 1
 
+    d_z = 2
+    d_c = 2
+    xi = 0.5
+    lbd_dec = 1
+    lbd_z = 0.01
+    lbd_c = 0.01
+    lbd_cc = 0.01
+
     shared_modules = {'backbone', 'encoder_c', 'encoder_z'}
     optimizer_func = torch.optim.Adam
     criterion = torch.nn.MSELoss()
@@ -34,9 +42,13 @@ client_root = "clients/digits/"
 client_ids = [c_id for c_id, _ in enumerate(tr_loaders)]
 
 # init models
-global_model = DualEncodersDigits(-1, args.shared_modules, args.optimizer_func, args.criterion)
+global_model = DualEncodersDigits(-1, args.shared_modules, args.optimizer_func, args.criterion
+                                  , args.d_z, args.d_c, args.xi
+                                  , args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc)
 global_model.model = global_model.model.to(args.device)
-client_models = [DualEncodersDigits(client, args.shared_modules, args.optimizer_func, args.criterion)
+client_models = [DualEncodersDigits(client, args.shared_modules, args.optimizer_func, args.criterion
+                                    , args.d_z, args.d_c, args.xi
+                                    , args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc)
                  for client in client_ids]
 # allocate global_model to each client to ensure the encoders are trained from the same initialization
 for client_model in client_models:

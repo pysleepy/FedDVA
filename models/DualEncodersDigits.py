@@ -173,7 +173,8 @@ class DualEncoder(nn.Module):
 
 
 class DualEncodersDigits:
-    def __init__(self, client_id, shared_module, optimizer_func, criterion):
+    def __init__(self, client_id, shared_module, optimizer_func, criterion
+                 , d_z, d_c, xi, lbd_dec, lbd_z, lbd_c, lbd_cc):
         self.shared_list = shared_module
         self.optimizer = optimizer_func
         self.criterion_dec = criterion
@@ -181,14 +182,14 @@ class DualEncodersDigits:
         self.in_channel = 3
         # self.hidden_dims = [32, 64, 128, 256, 512]
         self.hidden_dims = [8, 16, 32, 64, 128]
-        self.d_z = 10
-        self.d_c = 10
+        self.d_z = d_z
+        self.d_c = d_c
 
-        self.lbd_dec = 1
-        self.lbd_z = 1
-        self.lbd_c = 1
-        self.lbd_cc = 1
-        self.xi = 0.2
+        self.lbd_dec = lbd_dec
+        self.lbd_z = lbd_z
+        self.lbd_c = lbd_c
+        self.lbd_cc = lbd_cc
+        self.xi = xi
         self.n_resample = 5
 
         self.model = DualEncoder(self.in_channel, self.hidden_dims, self.d_z, self.d_c)
