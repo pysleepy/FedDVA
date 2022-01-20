@@ -186,8 +186,9 @@ class DualEncoder(nn.Module):
         return x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def generate(self, z, c):
-        output = self.decoder(z, c)
-        return output
+        output_z = self.decoder_z(z)
+        output_c = self.decoder_c(c)
+        return 0.5 * (output_z + output_c)
 
 
 class DualEncodersDigits:
@@ -245,7 +246,7 @@ class DualEncodersDigits:
 
                 # rec loss
                 loss_dec_z = self.criterion_dec(x_given_z, x)
-                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z)
+                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z.detach())
                 # loss_dec = self.criterion_dec(x_hat, x)
                 loss_dec = loss_dec_z + loss_dec_c
 
@@ -287,7 +288,7 @@ class DualEncodersDigits:
 
                 # rec loss
                 loss_dec_z = self.criterion_dec(x_given_z, x)
-                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z)
+                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z.detach())
                 # loss_dec = self.criterion_dec(x_hat, x)
                 loss_dec = loss_dec_z + loss_dec_c
 
