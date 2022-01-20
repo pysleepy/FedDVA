@@ -9,7 +9,6 @@ from utils.digit_loaders import prepare_digits
 from Server import aggregate
 from models.DualEncodersDigits import DualEncodersDigits
 
-
 class args:
     use_cuda = True
     device = 'cuda' if torch.cuda.is_available() and use_cuda else 'cpu'
@@ -28,6 +27,7 @@ class args:
     lbd_c = 0.001
     lbd_cc = 1
     n_resamples = 1
+    percent = 0.1
 
     shared_modules = {'backbone_z', 'backbone_c', 'encoder_c', 'encoder_z'}
     optimizer_func = torch.optim.Adam

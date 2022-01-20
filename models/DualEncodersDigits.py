@@ -117,9 +117,10 @@ class Encoder_c(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, d_encoding, hidden_dims):
+    def __init__(self, d_encoding, hidden_dims, out_channels=3):
         super(Decoder, self).__init__()
         self.d_encoding = d_encoding
+        self.out_channels = out_channels
         self.hidden_dims = list(reversed(hidden_dims))
 
         self.fc_input = nn.Linear(self.d_encoding, self.hidden_dims[0])
@@ -145,7 +146,7 @@ class Decoder(nn.Module):
                                                       , kernel_size=3, stride=2, padding=1, output_padding=1)
                                    , nn.BatchNorm2d(self.hidden_dims[-1])
                                    , nn.LeakyReLU()
-                                   , nn.Conv2d(self.hidden_dims[-1], out_channels=1, kernel_size=3, padding=1)
+                                   , nn.Conv2d(self.hidden_dims[-1], out_channels=out_channels, kernel_size=3, padding=1)
                                    , nn.Tanh())
         self.layers.append(last_layer)
 
@@ -198,7 +199,7 @@ class DualEncodersDigits:
         self.optimizer = optimizer_func
         self.criterion_dec = criterion
 
-        self.in_channel = 1
+        self.in_channel = 3
         # self.hidden_dims = [32, 64, 128, 256, 512]
         self.hidden_dims = [8, 16, 32, 64, 128]
         self.d_z = d_z
