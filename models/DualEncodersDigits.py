@@ -117,7 +117,7 @@ class Encoder_c(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, d_encoding, hidden_dims, out_channels=3):
+    def __init__(self, d_encoding, hidden_dims, out_channels=1):
         super(Decoder, self).__init__()
         self.d_encoding = d_encoding
         self.out_channels = out_channels
@@ -199,7 +199,7 @@ class DualEncodersDigits:
         self.optimizer = optimizer_func
         self.criterion_dec = criterion
 
-        self.in_channel = 3
+        self.in_channel = 1
         # self.hidden_dims = [32, 64, 128, 256, 512]
         self.hidden_dims = [8, 16, 32, 64, 128]
         self.d_z = d_z
