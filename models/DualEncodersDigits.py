@@ -188,7 +188,7 @@ class DualEncoder(nn.Module):
     def generate(self, z, c):
         output_z = self.decoder_z(z)
         output_c = self.decoder_c(c)
-        return 0.5 * (output_z + output_c)
+        return output_z, output_c
 
 
 class DualEncodersDigits:
