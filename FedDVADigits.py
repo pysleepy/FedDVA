@@ -28,7 +28,7 @@ class args:
     lbd_c = 0.001
     lbd_cc = 1
 
-    shared_modules = {'backbone', 'encoder_c', 'encoder_z'}
+    shared_modules = {'backbone_z', 'backbone_c', 'encoder_c', 'encoder_z'}
     optimizer_func = torch.optim.Adam
     criterion = torch.nn.MSELoss()
 
@@ -58,11 +58,11 @@ ts_loaders = [torch.utils.data.DataLoader(ts_dataset, batch_size=1000)
 
 
 # init models
-global_model = DualEncodersDigits(-1, args.shared_modules.union('decoder'), args.optimizer_func, args.criterion
+global_model = DualEncodersDigits(-1, args.shared_modules.union('decoder_z', 'decoder_c'), args.optimizer_func, args.criterion
                                   , args.d_z, args.d_c, args.xi
                                   , args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc)
 global_model.model = global_model.model.to(args.device)
-client_models = [DualEncodersDigits(client, args.shared_modules.union('decoder'), args.optimizer_func, args.criterion
+client_models = [DualEncodersDigits(client, args.shared_modules.union('decoder_z', 'decoder_c'), args.optimizer_func, args.criterion
                                     , args.d_z, args.d_c, args.xi
                                     , args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc)
                  for client in client_ids]
