@@ -85,6 +85,7 @@ class Encoder_z(nn.Module):
         return mu_z, log_var_z
 
 
+"""
 class Encoder_c(nn.Module):
     def __init__(self, d_x, d_z, d_c):
         super(Encoder_c, self).__init__()
@@ -97,6 +98,21 @@ class Encoder_c(nn.Module):
     def forward(self, x, z):
         mu_c = self.fc_mu_c(torch.cat([x, z], dim=1))
         log_var_c = self.fc_log_var_c(torch.cat([x, z], dim=1))
+        return mu_c, log_var_c
+"""
+
+
+class Encoder_c(nn.Module):
+    def __init__(self, d_x, d_c):
+        super(Encoder_c, self).__init__()
+        self.d_x = d_x
+        self.d_c = d_c
+        self.fc_mu_c = nn.Linear(self.d_x, self.d_c)
+        self.fc_log_var_c = nn.Linear(self.d_x, self.d_c)
+
+    def forward(self, x):
+        mu_c = self.fc_mu_c(x)
+        log_var_c = self.fc_log_var_c(x)
         return mu_c, log_var_c
 
 
@@ -133,8 +149,8 @@ class Decoder(nn.Module):
                                    , nn.Tanh())
         self.layers.append(last_layer)
 
-    def forward(self, encoding_z, encoding_c):
-        x = F.relu(self.fc_input(torch.cat([encoding_z, encoding_c], dim=1)))
+    def forward(self, encoding):
+        x = F.relu(self.fc_input(encoding))
         x = x.view(-1, self.hidden_dims[0], 1, 1)
         for layer in self.layers:
             x = layer(x)
@@ -149,23 +165,25 @@ class DualEncoder(nn.Module):
         self.d_z = d_z
         self.d_c = d_c
 
-        self.backbone = Backbone(self.in_channel, self.hidden_dims)
+        self.backbone_z = Backbone(self.in_channel, self.hidden_dims)
+        self.backbone_c = Backbone(self.in_channel, self.hidden_dims)
         self.encoder_z = Encoder_z(self.hidden_dims[-1], self.d_z)
-        self.encoder_c = Encoder_c(self.hidden_dims[-1], self.d_z, self.d_c)
-        self.decoder = Decoder(self.d_z + self.d_c, self.hidden_dims)
+        self.encoder_c = Encoder_c(self.hidden_dims[-1], self.d_c)
+        self.decoder_z = Decoder(self.d_z, self.hidden_dims)
+        self.decoder_c = Decoder(self.d_c, self.hidden_dims)
 
     def forward(self, x):
-        x = self.backbone(x)
-
-        mu_z, log_var_z = self.encoder_z(x)
+        x_z = self.backbone_z(x)
+        mu_z, log_var_z = self.encoder_z(x_z)
         z = reparameter(mu_z, log_var_z)
+        x_given_z = self.decoder_z(z)
 
-        mu_c, log_var_c = self.encoder_c(x, z)
+        x_c = self.backbone_c(x)
+        mu_c, log_var_c = self.encoder_c(x_c)
         c = reparameter(mu_c, log_var_c)
+        x_given_c = self.decoder_c(c)
 
-        output = self.decoder(z, c)
-
-        return output, z, c, mu_z, log_var_z, mu_c, log_var_c
+        return x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def generate(self, z, c):
         output = self.decoder(z, c)
@@ -201,10 +219,12 @@ class DualEncodersDigits:
         self.round.append(round)
         self.model.train()
 
-        optimizer_backbone = self.optimizer(self.model.backbone.parameters(), lr=lr)
+        optimizer_backbone_z = self.optimizer(self.model.backbone_z.parameters(), lr=lr)
+        optimizer_backbone_c = self.optimizer(self.model.backbone_c.parameters(), lr=lr)
         optimizer_encoder_z = self.optimizer(self.model.encoder_z.parameters(), lr=lr)
         optimizer_encoder_c = self.optimizer(self.model.encoder_c.parameters(), lr=lr)
-        optimizer_dec = self.optimizer(self.model.decoder.parameters(), lr=lr)
+        optimizer_dec_z = self.optimizer(self.model.decoder_z.parameters(), lr=lr)
+        optimizer_dec_c = self.optimizer(self.model.decoder_c.parameters(), lr=lr)
 
         logging.info("Optimizing Decoder")
         print("Optimizing Decoder")
@@ -219,17 +239,23 @@ class DualEncodersDigits:
                 x = x.repeat(self.n_resample, 1, 1, 1)
                 y = y.repeat(self.n_resample, 1, 1, 1)
 
-                optimizer_dec.zero_grad()
-                x_hat, _, _, _, _, _, _ = self.model(x)
+                optimizer_dec_z.zero_grad()
+                optimizer_dec_c.zero_grad()
+                x_given_z, x_given_c, _, _, _, _, _, _ = self.model(x)
 
-                # loss
-                loss_dec = self.criterion_dec(x_hat, x)
+                # rec loss
+                loss_dec_z = self.criterion_dec(x_given_z, x)
+                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z)
+                # loss_dec = self.criterion_dec(x_hat, x)
+                loss_dec = loss_dec_z + loss_dec_c
+
                 # loss_diff = criterion_dec(x_c, x_z)
                 loss = torch.mean(loss_dec, dim=0)
                 epoch_loss.append(loss.item())
                 loss = self.lbd_dec * loss_dec
                 loss.backward()
-                optimizer_dec.step()
+                optimizer_dec_z.step()
+                optimizer_dec_c.step()
 
             logging.info('Epoch Decoder Loss: ' + str(np.mean(epoch_loss)))
             print('Epoch Decoder Loss: ' + str(np.mean(epoch_loss)))
@@ -250,16 +276,20 @@ class DualEncodersDigits:
                 x = x.repeat(self.n_resample, 1, 1, 1)
                 y = y.repeat(self.n_resample, 1, 1, 1)
 
-                optimizer_backbone.zero_grad()
+                optimizer_backbone_z.zero_grad()
+                optimizer_backbone_c.zero_grad()
                 optimizer_encoder_z.zero_grad()
                 optimizer_encoder_c.zero_grad()
-                optimizer_dec.zero_grad()
+                optimizer_dec_z.zero_grad()
+                optimizer_dec_c.zero_grad()
 
-                x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x)
+                x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x)
 
-                # loss
-                loss_dec = self.criterion_dec(x_hat, x)
-                # loss_diff = criterion_dec(x_c, x_z)
+                # rec loss
+                loss_dec_z = self.criterion_dec(x_given_z, x)
+                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z)
+                # loss_dec = self.criterion_dec(x_hat, x)
+                loss_dec = loss_dec_z + loss_dec_c
 
                 mu_z_prior = torch.zeros_like(mu_z, dtype=torch.float)
                 log_var_z_prior = torch.zeros_like(log_var_z, dtype=torch.float)
@@ -282,7 +312,8 @@ class DualEncodersDigits:
 
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
-                optimizer_backbone.step()
+                optimizer_backbone_z.step()
+                optimizer_backbone_c.step()
                 optimizer_encoder_z.step()
                 optimizer_encoder_c.step()
 

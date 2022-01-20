@@ -96,15 +96,24 @@ DEMnist = client_models[0]
 i = np.random.randint(64)
 for data in ts_loader:
     x, y = data
-    x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = DEMnist.model(x.to(args.device))
-    rec = x_hat.detach().to("cpu")
-    img, rec = np.transpose(x[i].numpy(), [1,2,0]), np.transpose(rec[i].numpy(), [1,2,0])
+    x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c = DEMnist.model(x.to(args.device))
+    rec_z = x_given_z.detach().to("cpu")
+    rec_c = x_given_c.detach().to("cpu")
+    img, rec_z, rec_c = np.transpose(x[i].numpy(), [1, 2, 0])\
+        , np.transpose(rec_z[i].numpy(), [1, 2, 0])\
+        , np.transpose(rec_c[i].numpy(), [1, 2, 0])
     plt.figure()
-    plt.subplot(1, 2, 1)
+    plt.subplot(1, 4, 1)
     plt.title("origin")
     plt.imshow(img)
-    plt.subplot(1, 2, 2)
+    plt.subplot(1, 4, 2)
+    plt.title("rec_z")
+    plt.imshow(rec_z)
+    plt.subplot(1, 4, 3)
+    plt.title("rec_c")
+    plt.imshow(rec_c)
+    plt.subplot(1, 4, 4)
     plt.title("rec")
-    plt.imshow(rec)
+    plt.imshow(rec_z+rec_c)
     plt.show()
     break
