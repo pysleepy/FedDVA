@@ -231,7 +231,7 @@ if __name__ == '__main__':
     else:
         plt.imshow(np.transpose(i.numpy(), (1, 2, 0)))
         plt.show()
-    print("heterogeneous type: Label")
+    print("heterogeneous type: x")
     print("label:{:d} ".format(l.item()))
 
     plt.figure()
@@ -243,7 +243,7 @@ if __name__ == '__main__':
     else:
         plt.imshow(np.transpose(i.numpy(), (1, 2, 0)))
         plt.show()
-    print("heterogeneous type: Label")
+    print("heterogeneous type: x")
     print("label:{:d} ".format(l.item()))
 
     plt.figure()
@@ -255,5 +255,5 @@ if __name__ == '__main__':
     else:
         plt.imshow(np.transpose(i.numpy(), (1, 2, 0)))
         plt.show()
-    print("heterogeneous type: Label")
+    print("heterogeneous type: x")
     print("label:{:d} ".format(l.item()))
