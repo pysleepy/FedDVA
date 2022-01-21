@@ -85,28 +85,10 @@ class Encoder_z(nn.Module):
         return mu_z, log_var_z
 
 
-"""
 class Encoder_c(nn.Module):
-    def __init__(self, d_x, d_z, d_c):
+    def __init__(self, d_x, d_c):
         super(Encoder_c, self).__init__()
         self.d_x = d_x
-        self.d_z = d_z
-        self.d_c = d_c
-        self.fc_mu_c = nn.Linear(self.d_x + self.d_z, self.d_c)
-        self.fc_log_var_c = nn.Linear(self.d_x + self.d_z, self.d_c)
-
-    def forward(self, x, z):
-        mu_c = self.fc_mu_c(torch.cat([x, z], dim=1))
-        log_var_c = self.fc_log_var_c(torch.cat([x, z], dim=1))
-        return mu_c, log_var_c
-"""
-
-
-class Encoder_c(nn.Module):
-    def __init__(self, d_x, d_z, d_c):
-        super(Encoder_c, self).__init__()
-        self.d_x = d_x
-        self.d_z = d_z
         self.d_c = d_c
         self.fc_mu_c = nn.Linear(self.d_x, self.d_c)
         self.fc_log_var_c = nn.Linear(self.d_x, self.d_c)
@@ -172,7 +154,7 @@ class DualEncoder(nn.Module):
         self.encoder_z = Encoder_z(self.hidden_dims[-1], self.d_z)
         self.encoder_c = Encoder_c(self.hidden_dims[-1], self.d_c)
         self.decoder_z = Decoder(self.d_z, self.hidden_dims, self.in_channel)
-        self.decoder_c = Decoder(self.d_z + self.d_c, self.hidden_dims, self.in_channel)
+        self.decoder_c = Decoder(self.d_c, self.hidden_dims, self.in_channel)
 
     def forward(self, x):
         x_z = self.backbone_z(x)
@@ -180,17 +162,16 @@ class DualEncoder(nn.Module):
         z = reparameter(mu_z, log_var_z)
         x_given_z = self.decoder_z(z)
 
-        x_c = self.backbone_c(x_given_z.detach())
+        x_c = self.backbone_c(x)
         mu_c, log_var_c = self.encoder_c(x_c)
         c = reparameter(mu_c, log_var_c)
-        x_given_c = self.decoder_c(torch.cat([z.detach(), c], dim=1))
+        x_given_c = self.decoder_c(c)
 
         return x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def generate(self, z, c):
-        # output_z = self.decoder_z(z)
-        output_c = self.decoder_c(torch.cat([z, c], dim=1))
-        output_z = output_c
+        output_z = self.decoder_z(z)
+        output_c = self.decoder_c(c)
         return output_z, output_c
 
 
@@ -249,7 +230,7 @@ class DualEncodersDigits:
 
                 # rec loss
                 loss_dec_z = self.criterion_dec(x_given_z, x)
-                loss_dec_c = self.criterion_dec(x_given_c, x)
+                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z.detach())
                 # loss_dec = self.criterion_dec(x_given_z, x)
                 loss_dec = loss_dec_z + loss_dec_c
 
@@ -291,7 +272,7 @@ class DualEncodersDigits:
 
                 # rec loss
                 loss_dec_z = self.criterion_dec(x_given_z, x)
-                loss_dec_c = self.criterion_dec(x_given_c, x)
+                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z.detach())
                 # loss_dec = self.criterion_dec(x_given_z, x)
                 loss_dec = loss_dec_z + loss_dec_c
 
