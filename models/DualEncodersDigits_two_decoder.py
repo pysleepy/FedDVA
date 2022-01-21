@@ -117,7 +117,7 @@ class Encoder_c(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, d_encoding, hidden_dims, out_channels):
+    def __init__(self, d_encoding, hidden_dims, out_channels=1):
         super(Decoder, self).__init__()
         self.d_encoding = d_encoding
         self.out_channels = out_channels
@@ -170,8 +170,8 @@ class DualEncoder(nn.Module):
         self.backbone_c = Backbone(self.in_channel, self.hidden_dims)
         self.encoder_z = Encoder_z(self.hidden_dims[-1], self.d_z)
         self.encoder_c = Encoder_c(self.hidden_dims[-1], self.d_c)
-        self.decoder_z = Decoder(self.d_z, self.hidden_dims, self.in_channel)
-        self.decoder_c = Decoder(self.d_c, self.hidden_dims, self.in_channel)
+        self.decoder_z = Decoder(self.d_z, self.hidden_dims)
+        self.decoder_c = Decoder(self.d_c, self.hidden_dims)
 
     def forward(self, x):
         x_z = self.backbone_z(x)
@@ -194,14 +194,14 @@ class DualEncoder(nn.Module):
 
 class DualEncodersDigits:
     def __init__(self, client_id, shared_module, optimizer_func, criterion
-                 , d_z, d_c, xi, lbd_dec, lbd_z, lbd_c, lbd_cc, n_resample, n_channels):
+                 , d_z, d_c, xi, lbd_dec, lbd_z, lbd_c, lbd_cc, n_resample):
         self.shared_list = shared_module
         self.optimizer = optimizer_func
         self.criterion_dec = criterion
 
-        self.in_channel = n_channels
-        self.hidden_dims = [32, 64, 128, 256, 512]
-        # self.hidden_dims = [8, 16, 32, 64, 128]
+        self.in_channel = 1
+        # self.hidden_dims = [32, 64, 128, 256, 512]
+        self.hidden_dims = [8, 16, 32, 64, 128]
         self.d_z = d_z
         self.d_c = d_c
 

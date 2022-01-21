@@ -61,11 +61,11 @@ ts_loaders = [torch.utils.data.DataLoader(ts_dataset, batch_size=1000)
 # init models
 global_model = DualEncodersDigits(-1, args.shared_modules.union('decoder_z', 'decoder_c'), args.optimizer_func, args.criterion
                                   , args.d_z, args.d_c, args.xi
-                                  , args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc, args.n_resamples)
+                                  , args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc, args.n_resamples, 1)
 global_model.model = global_model.model.to(args.device)
 client_models = [DualEncodersDigits(client, args.shared_modules.union('decoder_z', 'decoder_c'), args.optimizer_func, args.criterion
                                     , args.d_z, args.d_c, args.xi
-                                    , args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc, args.n_resamples)
+                                    , args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc, args.n_resamples, 1)
                  for client in client_ids]
 # allocate global_model to each client to ensure the encoders are trained from the same initialization
 for client_model in client_models:
