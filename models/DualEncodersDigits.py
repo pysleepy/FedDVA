@@ -59,7 +59,7 @@ class Backbone(nn.Module):
         for h_dim in hidden_dims:
             cur_layer = nn.Sequential(nn.Conv2d(cur_in_channels, out_channels=h_dim, kernel_size=3
                                                                , stride=2, padding=1)
-                                      , nn.BatchNorm2d(h_dim)
+                                      # , nn.BatchNorm2d(h_dim)
                                       , nn.LeakyReLU())
             self.layers.append(cur_layer)
             cur_in_channels = h_dim
@@ -103,16 +103,17 @@ class Encoder_c(nn.Module):
 
 
 class Encoder_c(nn.Module):
-    def __init__(self, d_x, d_c):
+    def __init__(self, d_x, d_z, d_c):
         super(Encoder_c, self).__init__()
         self.d_x = d_x
+        self.d_z = d_z
         self.d_c = d_c
-        self.fc_mu_c = nn.Linear(self.d_x, self.d_c)
-        self.fc_log_var_c = nn.Linear(self.d_x, self.d_c)
+        self.fc_mu_c = nn.Linear(self.d_x + self.d_z, self.d_c)
+        self.fc_log_var_c = nn.Linear(self.d_x + self.d_z, self.d_c)
 
-    def forward(self, x):
-        mu_c = self.fc_mu_c(x)
-        log_var_c = self.fc_log_var_c(x)
+    def forward(self, x, z):
+        mu_c = self.fc_mu_c(torch.cat([x, z], dim=1))
+        log_var_c = self.fc_log_var_c(torch.cat([x, z], dim=1))
         return mu_c, log_var_c
 
 
@@ -129,22 +130,22 @@ class Decoder(nn.Module):
             cur_layer = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[l_id], self.hidden_dims[l_id + 1]
                                                          , kernel_size=3, stride=2
                                                          , padding=1, output_padding=1)
-                                      , nn.BatchNorm2d(self.hidden_dims[l_id + 1])
+                                      # , nn.BatchNorm2d(self.hidden_dims[l_id + 1])
                                       , nn.LeakyReLU())
             self.layers.append(cur_layer)
         last_but_two = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[-3], self.hidden_dims[-2]
                                                         , kernel_size=3, stride=2, padding=1, output_padding=0)
-                                     , nn.BatchNorm2d(self.hidden_dims[-2])
+                                     # , nn.BatchNorm2d(self.hidden_dims[-2])
                                      , nn.LeakyReLU())
         self.layers.append(last_but_two)
         last_but_one = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[-2], self.hidden_dims[-1]
                                                         , kernel_size=3, stride=2, padding=1, output_padding=1)
-                                     , nn.BatchNorm2d(self.hidden_dims[-1])
+                                     # , nn.BatchNorm2d(self.hidden_dims[-1])
                                      , nn.LeakyReLU())
         self.layers.append(last_but_one)
         last_layer = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[-1], self.hidden_dims[-1]
                                                       , kernel_size=3, stride=2, padding=1, output_padding=1)
-                                   , nn.BatchNorm2d(self.hidden_dims[-1])
+                                   # , nn.BatchNorm2d(self.hidden_dims[-1])
                                    , nn.LeakyReLU()
                                    , nn.Conv2d(self.hidden_dims[-1], out_channels=out_channels, kernel_size=3, padding=1)
                                    , nn.Tanh())
@@ -169,26 +170,28 @@ class DualEncoder(nn.Module):
         self.backbone_z = Backbone(self.in_channel, self.hidden_dims)
         self.backbone_c = Backbone(self.in_channel, self.hidden_dims)
         self.encoder_z = Encoder_z(self.hidden_dims[-1], self.d_z)
-        self.encoder_c = Encoder_c(self.hidden_dims[-1], self.d_c)
+        self.encoder_c = Encoder_c(self.hidden_dims[-1], self.d_z, self.d_c)
         self.decoder_z = Decoder(self.d_z, self.hidden_dims, self.in_channel)
-        self.decoder_c = Decoder(self.d_c, self.hidden_dims, self.in_channel)
+        self.decoder_c = Decoder(self.d_z + self.d_c, self.hidden_dims, self.in_channel)
 
     def forward(self, x):
         x_z = self.backbone_z(x)
         mu_z, log_var_z = self.encoder_z(x_z)
         z = reparameter(mu_z, log_var_z)
-        x_given_z = self.decoder_z(z)
+        # x_given_z = self.decoder_z(z)
 
-        x_c = self.backbone_c(x)
-        mu_c, log_var_c = self.encoder_c(x_c)
+        # x_c = self.backbone_c(x)
+        mu_c, log_var_c = self.encoder_c(x_z.detach(), z.detach())
         c = reparameter(mu_c, log_var_c)
-        x_given_c = self.decoder_c(c)
+        x_given_c = self.decoder_c(torch.cat([z, c], dim=1))
+        x_given_z = x_given_c
 
         return x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def generate(self, z, c):
-        output_z = self.decoder_z(z)
-        output_c = self.decoder_c(c)
+        # output_z = self.decoder_z(z)
+        output_c = self.decoder_c(torch.cat([z, c], dim=1))
+        output_z = output_c
         return output_z, output_c
 
 
