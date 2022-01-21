@@ -249,10 +249,10 @@ class DualEncodersDigits:
                 x_given_z, x_given_c, _, _, _, _, _, _ = self.model(x)
 
                 # rec loss
-                loss_dec_z = self.criterion_dec(x_given_z, x)
-                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z.detach())
-                # loss_dec = self.criterion_dec(x_hat, x)
-                loss_dec = loss_dec_z + loss_dec_c
+                # loss_dec_z = self.criterion_dec(x_given_z, x)
+                # loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z.detach())
+                loss_dec = self.criterion_dec(x_given_z, x)
+                # loss_dec = loss_dec_z + loss_dec_c
 
                 # loss_diff = criterion_dec(x_c, x_z)
                 loss = torch.mean(loss_dec, dim=0)
