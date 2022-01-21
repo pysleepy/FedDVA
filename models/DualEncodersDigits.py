@@ -103,10 +103,9 @@ class Encoder_c(nn.Module):
 
 
 class Encoder_c(nn.Module):
-    def __init__(self, d_x, d_z, d_c):
+    def __init__(self, d_x, d_c):
         super(Encoder_c, self).__init__()
         self.d_x = d_x
-        self.d_z = d_z
         self.d_c = d_c
         self.fc_mu_c = nn.Linear(self.d_x, self.d_c)
         self.fc_log_var_c = nn.Linear(self.d_x, self.d_c)
