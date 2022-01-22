@@ -9,7 +9,7 @@ from utils.digit_loaders import prepare_digits
 from Server import aggregate
 from models.DualEncodersDigits import DualEncodersDigits
 
-# from focal_loss import FocalLoss
+from focal_loss import FocalLoss
 
 class args:
     use_cuda = True
@@ -34,8 +34,7 @@ class args:
     shared_modules = {'backbone_z', 'backbone_c', 'encoder_c', 'encoder_z'}
     optimizer_func = torch.optim.Adam
     # criterion = torch.nn.MSELoss()
-    # criterion = FocalLoss(gamma=2)
-    criterion = torch.nn.BCELoss()
+    criterion = FocalLoss(gamma=2)
 
 
 # init data loaders
