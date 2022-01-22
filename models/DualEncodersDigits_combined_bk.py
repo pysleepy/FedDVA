@@ -148,7 +148,8 @@ class Decoder(nn.Module):
                                    # , nn.BatchNorm2d(self.hidden_dims[-1])
                                    , nn.LeakyReLU()
                                    , nn.Conv2d(self.hidden_dims[-1], out_channels=out_channels, kernel_size=3, padding=1)
-                                   , nn.Tanh())
+                                   # , nn.Tanh())
+                                   , nn.Sigmoid())
         self.layers.append(last_layer)
 
     def forward(self, encoding):
