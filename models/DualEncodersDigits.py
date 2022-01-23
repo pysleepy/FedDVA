@@ -197,7 +197,8 @@ class DualEncodersDigits:
                  , d_z, d_c, xi, lbd_dec_z, lbd_dec_c, lbd_z, lbd_c, lbd_cc, n_resample, n_channels):
         self.shared_list = shared_module
         self.optimizer = optimizer_func
-        self.criterion_dec = criterion
+        self.criterion_dec_z = criterion
+        self.criterion_dec_c = criterion
 
         self.in_channel = n_channels
         self.hidden_dims = [32, 64, 128, 256, 512]
@@ -247,7 +248,7 @@ class DualEncodersDigits:
                 x_given_z, x_given_c, _, _, _, _, _, _ = self.model(x)
 
                 # rec loss
-                loss_dec_z = self.criterion_dec(x_given_z, x)
+                loss_dec_z = self.criterion_dec_z(x_given_z, x)
                 loss_dec_z = torch.mean(loss_dec_z, dim=0)
                 epoch_loss_z.append(loss_dec_z.item())
                 loss_dec_z = self.lbd_dec_z * loss_dec_z
@@ -272,7 +273,7 @@ class DualEncodersDigits:
                 x_given_z, x_given_c, _, _, _, _, _, _ = self.model(x)
 
                 # rec loss
-                loss_dec_c = self.criterion_dec(x_given_c, x-x_given_z.detach())
+                loss_dec_c = self.criterion_dec_c(x_given_c, x-x_given_z.detach())
                 loss_dec_c = torch.mean(loss_dec_c, dim=0)
                 epoch_loss_c.append(loss_dec_c.item())
                 loss_dec_c = self.lbd_dec_c * loss_dec_c
@@ -309,8 +310,8 @@ class DualEncodersDigits:
                 x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x)
 
                 # rec loss
-                loss_dec_z = self.criterion_dec(x_given_z, x)
-                loss_dec_c = self.criterion_dec(x_given_c, F.relu(x - 2.0 * x_given_z.detach()))
+                loss_dec_z = self.criterion_dec_z(x_given_z, x)
+                loss_dec_c = self.criterion_dec_c(x_given_c, F.relu(x - 2.0 * x_given_z.detach()))
                 # loss_dec = self.criterion_dec(x_given_z, x)
                 loss_dec = loss_dec_z + loss_dec_c
 
