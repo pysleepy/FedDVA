@@ -310,7 +310,7 @@ class DualEncodersDigits:
 
                 # rec loss
                 loss_dec_z = self.criterion_dec(x_given_z, x)
-                loss_dec_c = self.criterion_dec(x_given_c, x - x_given_z.detach())
+                loss_dec_c = self.criterion_dec(x_given_c, x - 2.0 * x_given_z.detach())
                 # loss_dec = self.criterion_dec(x_given_z, x)
                 loss_dec = loss_dec_z + loss_dec_c
 
