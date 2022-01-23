@@ -179,7 +179,7 @@ class DualEncoder(nn.Module):
         z = reparameter(mu_z, log_var_z)
         x_given_z = self.decoder_z(z)
 
-        x_c = self.backbone_c(x)
+        x_c = self.backbone_c(F.relu(x - 2.0 * x_given_z.detach()))
         mu_c, log_var_c = self.encoder_c(x_c)
         c = reparameter(mu_c, log_var_c)
         x_given_c = self.decoder_c(torch.cat([z, c], dim=1))
@@ -273,7 +273,7 @@ class DualEncodersDigits:
                 x_given_z, x_given_c, _, _, _, _, _, _ = self.model(x)
 
                 # rec loss
-                loss_dec_c = self.criterion_dec_c(x_given_c, x-x_given_z.detach())
+                loss_dec_c = self.criterion_dec_c(x_given_c, F.relu(x - 2.0 * x_given_z.detach()))
                 loss_dec_c = torch.mean(loss_dec_c, dim=0)
                 epoch_loss_c.append(loss_dec_c.item())
                 loss_dec_c = self.lbd_dec_c * loss_dec_c
