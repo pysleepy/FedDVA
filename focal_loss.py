@@ -42,7 +42,8 @@ class FocalLoss(nn.Module):
 
         diff = input - target
         logpt = -0.5 * diff ** 2 - 0.5 * np.log(2. * np.pi)
-        pt = (0.5 * logpt).exp() / np.sqrt(2. * np.pi)
+        # pt = (0.5 * logpt).exp() / np.sqrt(2. * np.pi)
+        pt = logpt.exp()
         loss = -1. * (1. - pt) ** self.gamma * logpt
         loss = loss.view(loss.size(0), input.size(1), -1).mean(dim=-1)
         loss = loss.mean(dim=-1)
