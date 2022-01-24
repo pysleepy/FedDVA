@@ -129,8 +129,8 @@ class DualEncoder(nn.Module):
         return x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def generate(self, z, c):
-        output_z = self.decoder_z(z)
-        output_c = self.decoder_c(torch.cat([z, c], dim=1))
+        output_z = self.decoder_z(z).view(-1, 1, 28, 28)
+        output_c = self.decoder_c(torch.cat([z, c], dim=1)).view(-1, 1, 28, 28)
         return output_z, output_c
 
 
