@@ -172,7 +172,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     client_pth = "./clients/clients_balance_y_10"
     alpha = 10000
-    n_clients = 50
+    n_clients = 20
     dataset = ImageDatasetName.MNIST
 
     # if os.path.exists(client_pth):

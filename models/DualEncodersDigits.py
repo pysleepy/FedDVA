@@ -55,9 +55,13 @@ class Backbone(nn.Module):
         self.in_channels = in_channels
         self.hidden_dims = hidden_dims
         self.layers = nn.ModuleList()
-        cur_layer = nn.Sequential(nn.Linear(self.d_in, self.hidden_dims[0])
-                                  , nn.ReLU())
-        self.layers.append(cur_layer)
+
+        cur_dim = self.d_in
+        for hid_dim in self.hidden_dims:
+            cur_layer = nn.Sequential(nn.Linear(cur_dim, hid_dim)
+                                      , nn.ReLU())
+            cur_dim = hid_dim
+            self.layers.append(cur_layer)
 
     def forward(self, x):
         for layer in self.layers:
@@ -88,7 +92,13 @@ class Decoder(nn.Module):
 
         self.fc_input = nn.Linear(self.d_encoding, self.hidden_dims[0])
         self.layers = nn.ModuleList()
-        last_layer = nn.Sequential(nn.Linear(self.hidden_dims[0], 28 * 28 * self.out_channels)
+        cur_dim = self.hidden_dims[0]
+        for h_dim in self.hidden_dims[1:]:
+            cur_layer = nn.Sequential(nn.Linear(cur_dim, h_dim)
+                                      , nn.ReLU())
+            cur_dim = h_dim
+            self.layers.append(cur_layer)
+        last_layer = nn.Sequential(nn.Linear(cur_dim, 28 * 28 * self.out_channels)
                                    , nn.Tanh())
         self.layers.append(last_layer)
 
@@ -144,7 +154,7 @@ class DualEncodersDigits:
 
         self.in_channel = n_channels
         # self.hidden_dims = [32, 64, 128, 256, 512]
-        self.hidden_dims = [512]
+        self.hidden_dims = [512, 256, 128]
         # self.hidden_dims = [8, 16, 32, 64, 128]
         self.d_z = d_z
         self.d_c = d_c
