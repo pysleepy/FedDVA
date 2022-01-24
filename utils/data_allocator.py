@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from torchvision import datasets, transforms
 
-from ImageDatasets import ImageDatasetName, ClientDataset
-from DisplayUtilities import rand_cmap, plot_client_sample_rate
+from image_datasets import ImageDatasetName, ClientDataset
+from display_utilities import rand_cmap, plot_client_sample_rate
 
 logging.getLogger().setLevel(logging.INFO)
 

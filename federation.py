@@ -5,11 +5,10 @@ import matplotlib.pyplot as plt
 
 import torch
 
-from utils.digit_loaders import prepare_digits
-from FedServer import aggregate
-from FedClient import FedClient
+from fed_server import aggregate
+from fed_client_dva_digits import FedClient
 
-from focal_loss import FocalLoss
+from utils.focal_loss import FocalLoss
 
 
 class args:
@@ -36,7 +35,7 @@ class args:
     shared_modules = {'backbone_z', 'backbone_c', 'encoder_c', 'encoder_z'}
     optimizer_func = torch.optim.Adam
     # criterion = torch.nn.MSELoss()
-    criterion = FocalLoss(gamma=2)
+    criterion = FocalLoss(gamma=5)
 
 
 # init data loaders

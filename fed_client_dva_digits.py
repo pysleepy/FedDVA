@@ -180,6 +180,8 @@ class FedClient:
         return self.model
 
     def evaluate(self, device, ts_loader):
+        self.model.to(device)
+        self.model.eval()
         epoch_dec_c = []
         epoch_dkl_c = []
         epoch_constr_c = []
