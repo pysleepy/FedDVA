@@ -124,19 +124,20 @@ class DualEncoder(nn.Module):
         self.decoder_z = Decoder(self.d_z, self.hidden_dims, self.in_channel)
         self.decoder_c = Decoder(self.d_z + self.d_c, self.hidden_dims, self.in_channel)
 
-    def forward(self, x):
+    def forward(self, x, z=None):
         x = x.view(-1, 1 * 28 * 28)
-        x_z = self.backbone_z(x)
-        mu_z, log_var_z = self.encoder_z(x_z)
-        z = reparameter(mu_z, log_var_z)
-        x_given_z = self.decoder_z(z).view(-1, 1, 28, 28)
-
-        x_c = self.backbone_c(torch.cat([x, z.detach()], dim=1))
-        mu_c, log_var_c = self.encoder_c(x_c)
-        c = reparameter(mu_c, log_var_c)
-        x_given_c = self.decoder_c(torch.cat([z.detach(), c], dim=1)).view(-1, 1, 28, 28)
-
-        return x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c
+        if z is None:
+            x_z = self.backbone_z(x)
+            mu_z, log_var_z = self.encoder_z(x_z)
+            z = reparameter(mu_z, log_var_z)
+            x_hat = self.decoder_z(z).view(-1, 1, 28, 28)
+            return x_hat, z, mu_z, log_var_z
+        else:
+            x_c = self.backbone_c(torch.cat([x, z], dim=1))
+            mu_c, log_var_c = self.encoder_c(x_c)
+            c = reparameter(mu_c, log_var_c)
+            x_hat = self.decoder_c(torch.cat([z.detach(), c], dim=1)).view(-1, 1, 28, 28)
+            return x_hat, c, mu_c, log_var_c
 
     def generate(self, z, c):
         output_z = self.decoder_z(z).view(-1, 1, 28, 28)
@@ -186,9 +187,10 @@ class DualEncodersDigits:
         logging.info("Optimizing Decoder")
         print("Optimizing Decoder")
         for ep in range(epoch_decoder):
-            logging.info("Round: {:d}, Client: {:d}, Epoch Dec_z: {:d}".format(round, self.client_id, ep))
-            print("Round: {:d}, Client: {:d}, Epoch Dec_z: {:d}".format(round, self.client_id, ep))
+            logging.info("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(round, self.client_id, ep))
+            print("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(round, self.client_id, ep))
             epoch_loss_z = []
+            epoch_loss_c = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
                 x, y = data
@@ -198,42 +200,25 @@ class DualEncodersDigits:
 
                 optimizer_dec_z.zero_grad()
                 optimizer_dec_c.zero_grad()
-                x_given_z, x_given_c, _, _, _, _, _, _ = self.model(x)
+                x_hat_z, z, mu_z, log_var_z = self.model(x)
+                x_hat_c, c, mu_c, log_var_c = self.model(x, z.detach())
 
                 # rec loss
-                loss_dec_z = self.criterion_dec_z(x_given_z, x)
+                loss_dec_z = self.criterion_dec_z(x_hat_z, x)
+                loss_dec_c = self.criterion_dec_z(x_hat_c, x)
                 epoch_loss_z.append(loss_dec_z.item())
-                loss_dec_z = self.lbd_dec_z * loss_dec_z
-                loss_dec_z.backward()
-                optimizer_dec_z.step()
-
-            logging.info('Epoch Decoder_z Loss: ' + str(np.mean(epoch_loss_z)))
-            print('Epoch Decoder_z Loss: ' + str(np.mean(epoch_loss_z)))
-
-        for ep in range(epoch_decoder):
-            logging.info("Round: {:d}, Client: {:d}, Epoch Dec_c: {:d}".format(round, self.client_id, ep))
-            print("Round: {:d}, Client: {:d}, Epoch Dec_c: {:d}".format(round, self.client_id, ep))
-            epoch_loss_c = []
-            for b_id, data in enumerate(tr_loader):
-                # loading data
-                x, y = data
-                x, y = x.to(device), y.to(device)
-                x = x.repeat(self.n_resample, 1, 1, 1)
-                y = y.repeat(self.n_resample, 1, 1, 1)
-
-                optimizer_dec_c.zero_grad()
-                x_given_z, x_given_c, _, _, _, _, _, _ = self.model(x)
-
-                # rec loss
-                loss_dec_c = self.criterion_dec_c(x_given_c, x)
-                loss_dec_c = torch.mean(loss_dec_c, dim=0)
                 epoch_loss_c.append(loss_dec_c.item())
+                loss_dec_z = self.lbd_dec_z * loss_dec_z
                 loss_dec_c = self.lbd_dec_c * loss_dec_c
+                loss_dec_z.backward()
                 loss_dec_c.backward()
+                optimizer_dec_z.step()
                 optimizer_dec_c.step()
 
-            logging.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_loss_c)))
-            print('Epoch Decoder_c Loss: ' + str(np.mean(epoch_loss_c)))
+            logging.info('Epoch Decoder_z Loss: {:.4f}, Decoder_c Loss: {:.4f}'.format(
+                np.mean(epoch_loss_z), np.mean(epoch_loss_c)))
+            print('Epoch Decoder_z Loss: {:.4f}, Decoder_c Loss: {:.4f}'.format(
+                np.mean(epoch_loss_z), np.mean(epoch_loss_c)))
 
         logging.info("Optimizing Encoder")
         print("Optimizing Encoder")
@@ -241,8 +226,44 @@ class DualEncodersDigits:
             logging.info("Round: {:d}, Client: {:d}, Epoch Enc_z: {:d}".format(round, self.client_id, ep))
             print("Round: {:d}, Client: {:d}, Epoch Enc_z: {:d}".format(round, self.client_id, ep))
             epoch_dec_z = []
-            epoch_dec_c = []
             epoch_dkl_z = []
+            for b_id, data in enumerate(tr_loader):
+                # loading data
+                x, y = data
+                x, y = x.to(device), y.to(device)
+                x = x.repeat(self.n_resample, 1, 1, 1)
+                y = y.repeat(self.n_resample, 1, 1, 1)
+
+                optimizer_backbone_z.zero_grad()
+                optimizer_encoder_z.zero_grad()
+                optimizer_dec_z.zero_grad()
+
+                x_hat_z, z, mu_z, log_var_z = self.model(x)
+
+                # rec loss
+                loss_dec_z = self.criterion_dec_z(x_hat_z, x)
+                mu_z_prior = torch.zeros_like(mu_z, dtype=torch.float)
+                log_var_z_prior = torch.zeros_like(log_var_z, dtype=torch.float)
+                loss_dkl_z = loss_dkl(mu_z, log_var_z, mu_z_prior, log_var_z_prior)
+
+                epoch_dec_z.append(torch.mean(loss_dec_z, dim=0).item())
+                epoch_dkl_z.append(torch.mean(loss_dkl_z, dim=0).item())
+
+                loss = self.lbd_dec_z * loss_dec_z + self.lbd_z * loss_dkl_z
+                loss = torch.mean(loss, dim=0)
+                loss.backward()
+                optimizer_backbone_z.step()
+                optimizer_encoder_z.step()
+
+            logging.info('Epoch Decoder_z Loss: ' + str(np.mean(epoch_dec_z)))
+            print('Epoch Decoder Loss_z: ' + str(np.mean(epoch_dec_z)))
+            logging.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
+            print('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
+
+        for ep in range(epoch_encoder):
+            logging.info("Round: {:d}, Client: {:d}, Epoch Enc_c: {:d}".format(round, self.client_id, ep))
+            print("Round: {:d}, Client: {:d}, Epoch Enc_c: {:d}".format(round, self.client_id, ep))
+            epoch_dec_c = []
             epoch_dkl_c = []
             epoch_constr_c = []
             for b_id, data in enumerate(tr_loader):
@@ -252,55 +273,33 @@ class DualEncodersDigits:
                 x = x.repeat(self.n_resample, 1, 1, 1)
                 y = y.repeat(self.n_resample, 1, 1, 1)
 
-                optimizer_backbone_z.zero_grad()
                 optimizer_backbone_c.zero_grad()
-                optimizer_encoder_z.zero_grad()
                 optimizer_encoder_c.zero_grad()
-                optimizer_dec_z.zero_grad()
                 optimizer_dec_c.zero_grad()
 
-                x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x)
+                x_hat_z, z, mu_z, log_var_z = self.model(x)
+                x_hat_c, c, mu_c, log_var_c = self.model(x, z.detach())
 
                 # rec loss
-                loss_dec_z = self.criterion_dec_z(x_given_z, x)
-                loss_dec_c = self.criterion_dec_c(x_given_c, x)
-                # loss_dec = self.criterion_dec(x_given_z, x)
-                loss_dec = loss_dec_z + loss_dec_c
-
-                mu_z_prior = torch.zeros_like(mu_z, dtype=torch.float)
-                log_var_z_prior = torch.zeros_like(log_var_z, dtype=torch.float)
+                loss_dec_c = self.criterion_dec_c(x_hat_c, x)
                 mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
                 log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
-
-                loss_dkl_z = loss_dkl(mu_c, log_var_z, mu_z_prior, log_var_z_prior)
                 loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)
                 loss_constr_c = loss_reg_c(mu_c, log_var_c)
 
-                epoch_dec_z.append(torch.mean(loss_dec_z, dim=0).item())
                 epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
-                epoch_dkl_z.append(torch.mean(loss_dkl_z, dim=0).item())
                 epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
                 epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
 
-                loss = self.lbd_dec_z * loss_dec_z \
-                    + self.lbd_dec_c * loss_dec_c \
-                    + self.lbd_z * loss_dkl_z \
-                    + self.lbd_c * loss_dkl_c \
+                loss = self.lbd_dec_c * loss_dec_c + self.lbd_c * loss_dkl_c \
                     + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
-
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
-                optimizer_backbone_z.step()
                 optimizer_backbone_c.step()
-                optimizer_encoder_z.step()
                 optimizer_encoder_c.step()
 
-            logging.info('Epoch Decoder_z Loss: ' + str(np.mean(epoch_dec_z)))
-            print('Epoch Decoder Loss_z: ' + str(np.mean(epoch_dec_z)))
             logging.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec_c)))
             print('Epoch Decoder Loss_c: ' + str(np.mean(epoch_dec_c)))
-            logging.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
-            print('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
             logging.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
             print('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
             logging.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
@@ -319,6 +318,39 @@ class DualEncodersDigits:
                 named_para_target[1].data = named_para_source[1].detach().clone().data
         return self.model
 
-    def evaluate(self, client_id, ts_loader, criterion):
-        pass
+    def evaluate(self, device, ts_loader):
+        epoch_dec_c = []
+        epoch_dkl_c = []
+        epoch_constr_c = []
 
+        for b_id, data in enumerate(ts_loader):
+            # loading data
+            x, y = data
+            x, y = x.to(device), y.to(device)
+            x = x.repeat(self.n_resample, 1, 1, 1)
+            y = y.repeat(self.n_resample, 1, 1, 1)
+
+            x_hat_z, z, mu_z, log_var_z = self.model(x)
+            x_hat_c, c, mu_c, log_var_c = self.model(x, z.detach())
+
+            # rec loss
+            loss_dec_c = self.criterion_dec_c(x_hat_c, x)
+            mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
+            log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
+            loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)
+            loss_constr_c = loss_reg_c(mu_c, log_var_c)
+
+            epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
+            epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
+            epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
+
+            logging.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec_c)))
+            print('Epoch Decoder Loss_c: ' + str(np.mean(epoch_dec_c)))
+            logging.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
+            print('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
+            logging.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
+            print('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
+            return x, x_hat_z, z,  mu_z, log_var_z, x_hat_c, c, mu_c, log_var_c
+
+    def upload_model(self):
+        return self.shared_list, self.model
