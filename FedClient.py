@@ -76,9 +76,9 @@ class FedClient:
                 optimizer_dec_z.step()
                 optimizer_dec_c.step()
 
-            logging.info('Epoch Decoder_z Loss: {:.4f}, Decoder_z Loss: {:.4f}'.format(
+            logging.info('Epoch Decoder_z Loss: {:.4f}, Decoder_c Loss: {:.4f}'.format(
                 np.mean(epoch_loss_z), np.mean(epoch_loss_c)))
-            print('Epoch Decoder_z Loss: {:.4f}, Decoder_z Loss: {:.4f}'.format(
+            print('Epoch Decoder_z Loss: {:.4f}, Decoder_c Loss: {:.4f}'.format(
                 np.mean(epoch_loss_z), np.mean(epoch_loss_c)))
 
         logging.info("Optimizing Encoder")

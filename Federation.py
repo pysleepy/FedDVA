@@ -106,6 +106,7 @@ md = client_models[0]
 i = np.random.randint(64)
 x, x_hat_z, z,  mu_z, log_var_z, x_hat_c, c, mu_c, log_var_c = md.evaluate(args.device, ts_loader)
 
+x = x.to("cpu")
 rec_z = x_hat_z.detach().to("cpu")
 rec_c = x_hat_c.detach().to("cpu")
 img, rec_z, rec_c = x[i].numpy().squeeze()\
