@@ -27,7 +27,7 @@ class args:
     lbd_dec_z = 1
     lbd_dec_c = 1
     lbd_z = 1
-    lbd_c = 1
+    lbd_c = 0
     lbd_cc = 1
     n_resamples = 1
     percent = 0.1

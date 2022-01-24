@@ -48,72 +48,35 @@ def loss_reg_c(mu_c, log_var_c):
 
 
 class Backbone(nn.Module):
-    def __init__(self,  in_channels, hidden_dims):
+    def __init__(self,  in_channels, hidden_dims, d_in):
         super(Backbone, self).__init__()
 
+        self.d_in = d_in
         self.in_channels = in_channels
         self.hidden_dims = hidden_dims
         self.layers = nn.ModuleList()
-
-        cur_in_channels = self.in_channels
-        for h_dim in hidden_dims:
-            cur_layer = nn.Sequential(nn.Conv2d(cur_in_channels, out_channels=h_dim, kernel_size=3
-                                                               , stride=2, padding=1)
-                                      # , nn.BatchNorm2d(h_dim)
-                                      , nn.LeakyReLU())
-            self.layers.append(cur_layer)
-            cur_in_channels = h_dim
+        cur_layer = nn.Sequential(nn.Linear(self.d_in, self.hidden_dims[0])
+                                  , nn.ReLU())
+        self.layers.append(cur_layer)
 
     def forward(self, x):
         for layer in self.layers:
             x = layer(x)
-        x = torch.flatten(x, start_dim=1)
         return x
 
 
-class Encoder_z(nn.Module):
-    def __init__(self, d_x, d_z):
-        super(Encoder_z, self).__init__()
-        self.d_x = d_x
-        self.d_z = d_z
-        self.fc_mu_z = nn.Linear(self.d_x, self.d_z)
-        self.fc_log_var_z = nn.Linear(self.d_x, self.d_z)
+class Encoder(nn.Module):
+    def __init__(self, d_in, d_out):
+        super(Encoder, self).__init__()
+        self.d_in = d_in
+        self.d_out = d_out
+        self.fc_mu_z = nn.Linear(self.d_in, self.d_out)
+        self.fc_log_var_z = nn.Linear(self.d_in, self.d_out)
 
     def forward(self, x):
         mu_z = self.fc_mu_z(x)
         log_var_z = self.fc_log_var_z(x)
         return mu_z, log_var_z
-
-
-"""
-class Encoder_c(nn.Module):
-    def __init__(self, d_x, d_z, d_c):
-        super(Encoder_c, self).__init__()
-        self.d_x = d_x
-        self.d_z = d_z
-        self.d_c = d_c
-        self.fc_mu_c = nn.Linear(self.d_x + self.d_z, self.d_c)
-        self.fc_log_var_c = nn.Linear(self.d_x + self.d_z, self.d_c)
-
-    def forward(self, x, z):
-        mu_c = self.fc_mu_c(torch.cat([x, z], dim=1))
-        log_var_c = self.fc_log_var_c(torch.cat([x, z], dim=1))
-        return mu_c, log_var_c
-"""
-
-
-class Encoder_c(nn.Module):
-    def __init__(self, d_x,  d_c):
-        super(Encoder_c, self).__init__()
-        self.d_x = d_x
-        self.d_c = d_c
-        self.fc_mu_c = nn.Linear(self.d_x, self.d_c)
-        self.fc_log_var_c = nn.Linear(self.d_x, self.d_c)
-
-    def forward(self, x):
-        mu_c = self.fc_mu_c(x)
-        log_var_c = self.fc_log_var_c(x)
-        return mu_c, log_var_c
 
 
 class Decoder(nn.Module):
@@ -125,34 +88,12 @@ class Decoder(nn.Module):
 
         self.fc_input = nn.Linear(self.d_encoding, self.hidden_dims[0])
         self.layers = nn.ModuleList()
-        for l_id in range(len(self.hidden_dims) - 3):
-            cur_layer = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[l_id], self.hidden_dims[l_id + 1]
-                                                         , kernel_size=3, stride=2
-                                                         , padding=1, output_padding=1)
-                                      # , nn.BatchNorm2d(self.hidden_dims[l_id + 1])
-                                      , nn.LeakyReLU())
-            self.layers.append(cur_layer)
-        last_but_two = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[-3], self.hidden_dims[-2]
-                                                        , kernel_size=3, stride=2, padding=1, output_padding=0)
-                                     # , nn.BatchNorm2d(self.hidden_dims[-2])
-                                     , nn.LeakyReLU())
-        self.layers.append(last_but_two)
-        last_but_one = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[-2], self.hidden_dims[-1]
-                                                        , kernel_size=3, stride=2, padding=1, output_padding=1)
-                                     # , nn.BatchNorm2d(self.hidden_dims[-1])
-                                     , nn.LeakyReLU())
-        self.layers.append(last_but_one)
-        last_layer = nn.Sequential(nn.ConvTranspose2d(self.hidden_dims[-1], self.hidden_dims[-1]
-                                                      , kernel_size=3, stride=2, padding=1, output_padding=1)
-                                   # , nn.BatchNorm2d(self.hidden_dims[-1])
-                                   , nn.LeakyReLU()
-                                   , nn.Conv2d(self.hidden_dims[-1], out_channels=out_channels, kernel_size=3, padding=1)
+        last_layer = nn.Sequential(nn.Linear(self.hidden_dims[0], 28 * 28 * self.out_channels)
                                    , nn.Tanh())
         self.layers.append(last_layer)
 
     def forward(self, encoding):
         x = F.relu(self.fc_input(encoding))
-        x = x.view(-1, self.hidden_dims[0], 1, 1)
         for layer in self.layers:
             x = layer(x)
         return x
@@ -166,23 +107,24 @@ class DualEncoder(nn.Module):
         self.d_z = d_z
         self.d_c = d_c
 
-        self.backbone_z = Backbone(self.in_channel, self.hidden_dims)
-        self.backbone_c = Backbone(self.in_channel, self.hidden_dims)
-        self.encoder_z = Encoder_z(self.hidden_dims[-1], self.d_z)
-        self.encoder_c = Encoder_c(self.hidden_dims[-1], self.d_c)
+        self.backbone_z = Backbone(self.in_channel, self.hidden_dims, 28 * 28)
+        self.backbone_c = Backbone(self.in_channel, self.hidden_dims, 28 * 28 + self.d_z)
+        self.encoder_z = Encoder(self.hidden_dims[-1], self.d_z)
+        self.encoder_c = Encoder(self.hidden_dims[-1], self.d_c)
         self.decoder_z = Decoder(self.d_z, self.hidden_dims, self.in_channel)
         self.decoder_c = Decoder(self.d_z + self.d_c, self.hidden_dims, self.in_channel)
 
     def forward(self, x):
+        x = x.view(-1, 1 * 28 * 28)
         x_z = self.backbone_z(x)
         mu_z, log_var_z = self.encoder_z(x_z)
         z = reparameter(mu_z, log_var_z)
-        x_given_z = self.decoder_z(z)
+        x_given_z = self.decoder_z(z).view(-1, 1, 28, 28)
 
-        x_c = self.backbone_c(F.relu(x - 2.0 * x_given_z.detach()))
+        x_c = self.backbone_c(torch.cat([x, z.detach()], dim=1))
         mu_c, log_var_c = self.encoder_c(x_c)
         c = reparameter(mu_c, log_var_c)
-        x_given_c = self.decoder_c(torch.cat([z, c], dim=1))
+        x_given_c = self.decoder_c(torch.cat([z.detach(), c], dim=1)).view(-1, 1, 28, 28)
 
         return x_given_z, x_given_c, z, c, mu_z, log_var_z, mu_c, log_var_c
 
@@ -201,7 +143,8 @@ class DualEncodersDigits:
         self.criterion_dec_c = criterion
 
         self.in_channel = n_channels
-        self.hidden_dims = [32, 64, 128, 256, 512]
+        # self.hidden_dims = [32, 64, 128, 256, 512]
+        self.hidden_dims = [512]
         # self.hidden_dims = [8, 16, 32, 64, 128]
         self.d_z = d_z
         self.d_c = d_c
@@ -249,7 +192,6 @@ class DualEncodersDigits:
 
                 # rec loss
                 loss_dec_z = self.criterion_dec_z(x_given_z, x)
-                loss_dec_z = torch.mean(loss_dec_z, dim=0)
                 epoch_loss_z.append(loss_dec_z.item())
                 loss_dec_z = self.lbd_dec_z * loss_dec_z
                 loss_dec_z.backward()
@@ -273,7 +215,7 @@ class DualEncodersDigits:
                 x_given_z, x_given_c, _, _, _, _, _, _ = self.model(x)
 
                 # rec loss
-                loss_dec_c = self.criterion_dec_c(x_given_c, F.relu(x - 2.0 * x_given_z.detach()))
+                loss_dec_c = self.criterion_dec_c(x_given_c, x)
                 loss_dec_c = torch.mean(loss_dec_c, dim=0)
                 epoch_loss_c.append(loss_dec_c.item())
                 loss_dec_c = self.lbd_dec_c * loss_dec_c
@@ -311,7 +253,7 @@ class DualEncodersDigits:
 
                 # rec loss
                 loss_dec_z = self.criterion_dec_z(x_given_z, x)
-                loss_dec_c = self.criterion_dec_c(x_given_c, F.relu(x - 2.0 * x_given_z.detach()))
+                loss_dec_c = self.criterion_dec_c(x_given_c, x)
                 # loss_dec = self.criterion_dec(x_given_z, x)
                 loss_dec = loss_dec_z + loss_dec_c
 
