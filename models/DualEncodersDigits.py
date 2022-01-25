@@ -140,4 +140,91 @@ class DualEncoder(nn.Module):
         return output_z, output_c
 
 
+class Codebook(nn.Module):
+    """
+    Reference:
+    [1] https://github.com/deepmind/sonnet/blob/v2/sonnet/src/nets/vqvae.py
+    """
+    def __init__(self, n_embeddings, d_embedding, beta = 0.25):
+        super(Codebook, self).__init__()
+        self.K = n_embeddings
+        self.D = d_embedding
+        self.beta = beta
+
+        self.embedding = nn.Embedding(self.K, self.D)
+        self.embedding.weight.data.uniform_(-1 / self.K, 1 / self.K)
+
+    def forward(self, latents):
+        latents = latents.permute(0, 2, 3, 1).contiguous()  # [B x D x H x W] -> [B x H x W x D]
+        latents_shape = latents.shape
+        flat_latents = latents.view(-1, self.D)  # [BHW x D]
+
+        # Compute L2 distance between latents and embedding weights
+        dist = torch.sum(flat_latents ** 2, dim=1, keepdim=True) + \
+            torch.sum(self.embedding.weight ** 2, dim=1) - \
+            2 * torch.matmul(flat_latents, self.embedding.weight.t())  # [BHW x K]
+
+        # Get the encoding that has the min distance
+        encoding_inds = torch.argmin(dist, dim=1).unsqueeze(1)  # [BHW, 1]
+
+        # Convert to one-hot encodings
+        device = latents.device
+        encoding_one_hot = torch.zeros(encoding_inds.size(0), self.K, device=device)
+        encoding_one_hot.scatter_(1, encoding_inds, 1)  # [BHW x K]
+
+        # Quantize the latents
+        quantized_latents = torch.matmul(encoding_one_hot, self.embedding.weight)  # [BHW, D]
+        quantized_latents = quantized_latents.view(latents_shape)  # [B x H x W x D]
+
+        # Compute the VQ Losses
+        commitment_loss = F.mse_loss(quantized_latents.detach(), latents)
+        embedding_loss = F.mse_loss(quantized_latents, latents.detach())
+
+        # vq_loss = commitment_loss * self.beta + embedding_loss
+
+        # Add the residue back to the latents
+        quantized_latents = latents + (quantized_latents - latents).detach()
+
+        return quantized_latents.permute(0, 3, 1, 2).contiguous(), commitment_loss, embedding_loss  # [B x D x H x W]
+
+
+class DualVQEncoder(nn.Module):
+    def __init__(self, in_channel, hidden_dims, d_z, d_c, n_code):
+        super(DualVQEncoder, self).__init__()
+        self.in_channel = in_channel
+        self.hidden_dims = hidden_dims
+        self.d_z = d_z
+        self.d_c = d_c
+        self.n_code = n_code
+
+        self.backbone_z = Backbone(self.in_channel, self.hidden_dims, 28 * 28)
+        self.backbone_c = Backbone(self.in_channel, self.hidden_dims, 28 * 28 + self.d_z)
+        self.encoder_z = Encoder(self.hidden_dims[-1], self.d_z)
+        self.encoder_c = Encoder(self.hidden_dims[-1], self.d_c)
+        self.vq_encoder = Codebook(self.n_code, self.d_z)
+        self.decoder_z = Decoder(self.d_z, self.hidden_dims, self.in_channel)
+        self.decoder_c = Decoder(self.d_z + self.d_c, self.hidden_dims, self.in_channel)
+
+    def forward(self, x, z=None):
+        x = x.view(-1, 1 * 28 * 28)
+        if z is None:
+            x_z = self.backbone_z(x)
+            mu_z, log_var_z = self.encoder_z(x_z)
+            # z = reparameter(mu_z, log_var_z)
+            z, commitment_loss, embedding_loss = self.vq_encoder(mu_z.unsqueeze(1).unsqueeze(1))
+            z = z.squeeze(1).squeeze(1)
+            x_hat = self.decoder_z(z).view(-1, 1, 28, 28)
+            return x_hat, z, mu_z, log_var_z, commitment_loss, embedding_loss
+        else:
+            x_c = self.backbone_c(torch.cat([x, z], dim=1))
+            mu_c, log_var_c = self.encoder_c(x_c)
+            c = reparameter(mu_c, log_var_c)
+            x_hat = self.decoder_c(torch.cat([z.detach(), c], dim=1)).view(-1, 1, 28, 28)
+            return x_hat, c, mu_c, log_var_c
+
+    def generate(self, z, c):
+        output_z = self.decoder_z(z).view(-1, 1, 28, 28)
+        output_c = self.decoder_c(torch.cat([z, c], dim=1)).view(-1, 1, 28, 28)
+        return output_z, output_c
+
 

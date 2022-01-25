@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import torch
 
 from fed_server import aggregate
-from fed_client_dva_digits import FedClient
+# from fed_client_dva_digits import FedClient
+from fed_client_vq_dva_digits import FedClient
 
 from utils.focal_loss import FocalLoss
 
@@ -32,7 +33,7 @@ class args:
     n_resamples = 1
     percent = 0.1
 
-    shared_modules = {'backbone_z', 'backbone_c', 'encoder_c', 'encoder_z'}
+    shared_modules = {'backbone_z', 'backbone_c', 'encoder_c', 'encoder_z', 'vq_encoder'}
     optimizer_func = torch.optim.Adam
     # criterion = torch.nn.MSELoss()
     criterion = FocalLoss(gamma=5)
@@ -61,18 +62,29 @@ ts_loaders = [torch.utils.data.DataLoader(ts_dataset, batch_size=1000)
 
 
 # init models
+"""
 global_model = FedClient(-1, args.shared_modules.union('decoder_z', 'decoder_c')
                          , args.optimizer_func, args.criterion
                          , args.d_z, args.d_c, args.xi
-                         , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc
-                         , args.n_resamples, 1)
+                         , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc, 1)
 global_model.model = global_model.model.to(args.device)
 
 client_models = [FedClient(c_id, args.shared_modules.union('decoder_z', 'decoder_c')
                            , args.optimizer_func, args.criterion
                            , args.d_z, args.d_c, args.xi
-                           , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc
-                           , args.n_resamples, 1)
+                           , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc, 1)
+                 for c_id in client_ids]
+"""
+global_model = FedClient(-1, args.shared_modules.union('decoder_z', 'decoder_c')
+                         , args.optimizer_func, args.criterion
+                         , args.d_z, args.d_c, args.xi
+                         , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc, 1, 10)
+global_model.model = global_model.model.to(args.device)
+
+client_models = [FedClient(c_id, args.shared_modules.union('decoder_z', 'decoder_c')
+                           , args.optimizer_func, args.criterion
+                           , args.d_z, args.d_c, args.xi
+                           , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc, 1, 10)
                  for c_id in client_ids]
 
 for client_model in client_models:
@@ -84,7 +96,8 @@ for r in range(args.n_rounds):
     print("round: " + str(r))
     for client_id, (tr_loader, ts_loader, n_sample, client_model) in enumerate(
             zip(tr_loaders, ts_loaders, n_tr_samples, client_models)):
-        client_model.fit(args.device, r, tr_loader, args.epoch_encoder, args.epoch_decoder, args.learning_rate)
+        client_model.fit(args.device, r, tr_loader, args.epoch_encoder, args.epoch_decoder
+                         , args.learning_rate, args.n_resamples)
     for para in global_model.model.parameters():
         para.data = torch.zeros_like(para.data)
     global_model = aggregate(global_model, client_models, n_tr_samples)
@@ -95,7 +108,8 @@ for r in range(1):
     print("round: " + str(r))
     for client_id, (tr_loader, ts_loader, n_sample, client_model) in enumerate(
             zip(tr_loaders, ts_loaders, n_tr_samples, client_models)):
-        client_model.fit(args.device, r, tr_loader, args.epoch_encoder, args.epoch_decoder, args.learning_rate)
+        client_model.fit(args.device, r, tr_loader, args.epoch_encoder, args.epoch_decoder
+                         , args.learning_rate, args.n_resamples)
     for para in global_model.model.parameters():
         para.data = torch.zeros_like(para.data)
     global_model = aggregate(global_model, client_models, n_tr_samples)
@@ -103,7 +117,7 @@ for r in range(1):
 ts_loader = ts_loaders[0]
 md = client_models[0]
 i = np.random.randint(64)
-x, x_hat_z, z,  mu_z, log_var_z, x_hat_c, c, mu_c, log_var_c = md.evaluate(args.device, ts_loader)
+x, x_hat_z, z,  mu_z, log_var_z, x_hat_c, c, mu_c, log_var_c = md.evaluate(args.device, ts_loader, args.n_resamples)
 
 x = x.to("cpu")
 rec_z = x_hat_z.detach().to("cpu")
