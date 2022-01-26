@@ -3,7 +3,7 @@ import torch
 from torch.functional import F
 import logging
 
-from models.DualEncodersWithVQDigits import loss_dkl, loss_reg_c, DualVQEncoder
+from models.DualEncodersWithVQDigits import DualVQEncoder
 
 
 class FedClient:
@@ -15,9 +15,7 @@ class FedClient:
         self.criterion_dec_c = criterion
 
         self.in_channel = n_channels
-        # self.hidden_dims = [32, 64, 128, 256, 512]
-        self.hidden_dims = [512, 256, 128]
-        # self.hidden_dims = [8, 16, 32, 64, 128]
+        self.hidden_dims = [64, 64 * 2, 64 * 4, 64*8]
         self.d_z = d_z
         self.d_c = d_c
         self.n_code = n_code
