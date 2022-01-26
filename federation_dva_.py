@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import torch
+from torch.functional import F
 
 from fed_server import aggregate
 from fed_client_dva import FedClient
@@ -100,7 +101,7 @@ x, x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = md.evaluate(args.device, tl,
 
 origin = x.to("cpu")
 rec = x_hat.detach().to("cpu")
-origin, rec, = origin[i].numpy().squeeze(), rec[i].numpy().squeeze()
+origin, rec, = F.relu(origin[i]).numpy().squeeze(), F.relu(rec[i]).numpy().squeeze()
 plt.figure()
 plt.subplot(1, 2, 1)
 plt.title("origin")
