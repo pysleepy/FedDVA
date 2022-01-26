@@ -187,7 +187,7 @@ class DualEncoder(nn.Module):
         mu_z, log_var_z = self.encoder_z(x_z)
         z = reparameter(mu_z, log_var_z)
         if not on_c:
-            random_c = torch.zeros([2, x.shape[0], self.d_c], dtype=torch.float)
+            random_c = torch.zeros([2, x.shape[0], self.d_c], dtype=torch.float).to(x.device)
             mu_c, log_var_c = random_c[0], random_c[1]
         else:
             e_z = self.embedding_z(z).view(-1, self.in_h, self.in_w).unsqueeze(1)
