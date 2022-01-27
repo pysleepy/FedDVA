@@ -60,7 +60,7 @@ class FedClient:
                 y = y.repeat(n_resamples, 1, 1, 1)
 
                 optimizer_decoder.zero_grad()
-                x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
+                x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
 
                 # rec loss
                 loss_dec = self.criterion_dec(x_hat, x)
