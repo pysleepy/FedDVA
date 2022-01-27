@@ -152,6 +152,7 @@ class FedClient:
                 optimizer_embedding_x.step()
                 optimizer_backbone_c.step()
                 optimizer_encoder_c.step()
+                optimizer_decoder.step()
 
             logging.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec_c)))
             print('Epoch Decoder Loss_c: ' + str(np.mean(epoch_dec_c)))
