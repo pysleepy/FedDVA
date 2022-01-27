@@ -31,7 +31,7 @@ class FedClient:
         self.model = DualEncoder(self.in_h, self.in_w, self.in_channel, self.hidden_dims, self.d_z, self.d_c)
         self.round = []
 
-    def fit(self, device, cur_round, tr_loader, epoch_encoder, epoch_decoder, lr, n_resamples):
+    def fit(self, device, cur_round, tr_loader, epoch_encoder_z, epoch_encoder_c, epoch_decoder, lr, n_resamples):
         self.model = self.model.to(device)
         self.round.append(cur_round)
         self.model.train()
@@ -74,7 +74,7 @@ class FedClient:
 
         logging.info("Optimizing Encoder")
         print("Optimizing Encoder")
-        for ep in range(epoch_encoder):
+        for ep in range(epoch_encoder_z):
             logging.info("Round: {:d}, Client: {:d}, Epoch Enc_z: {:d}".format(cur_round, self.client_id, ep))
             print("Round: {:d}, Client: {:d}, Epoch Enc_z: {:d}".format(cur_round, self.client_id, ep))
             epoch_dec_z = []
@@ -112,7 +112,7 @@ class FedClient:
             logging.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
             print('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
 
-        for ep in range(epoch_encoder):
+        for ep in range(epoch_encoder_c):
             logging.info("Round: {:d}, Client: {:d}, Epoch Enc_c: {:d}".format(cur_round, self.client_id, ep))
             print("Round: {:d}, Client: {:d}, Epoch Enc_c: {:d}".format(cur_round, self.client_id, ep))
             epoch_dec_c = []
