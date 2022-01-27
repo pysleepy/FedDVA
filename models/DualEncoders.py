@@ -190,7 +190,7 @@ class DualEncoder(nn.Module):
             random_c = torch.zeros([2, x.shape[0], self.d_c], dtype=torch.float).to(x.device)
             mu_c, log_var_c = random_c[0], random_c[1]
         else:
-            e_z = self.embedding_z(z).view(-1, self.in_h, self.in_w).unsqueeze(1)
+            e_z = self.embedding_z(z.detach()).view(-1, self.in_h, self.in_w).unsqueeze(1)
             e_x = self.embedding_x(x)
             x_c = torch.cat([e_x, e_z], dim=1)
             x_c = self.backbone_c(x_c)
