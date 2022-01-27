@@ -39,6 +39,7 @@ class args:
     epoch_decoder = 1
     n_resamples = 1
 
+    n_clients = 5
 
 # init data loaders
 # tr_loaders, ts_loaders = prepare_digits(args)
