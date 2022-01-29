@@ -1,5 +1,6 @@
 import random
 
+import os
 import numpy as np
 from enum import Enum, unique
 from PIL import Image
@@ -98,26 +99,10 @@ class ClientDataset:
 
         for cor in tr_cords:
             for (idx, h, w) in cor:
-                tr_marks[idx, h - 1, w, :] = 255
                 tr_marks[idx, h, w, :] = 255
-                tr_marks[idx, h + 1, w, :] = 255
-                tr_marks[idx, h, w - 1, :] = 255
-                tr_marks[idx, h, w + 1, :] = 255
-                tr_marks[idx, h - 1, w - 1, :] = 255
-                tr_marks[idx, h + 1, w + 1, :] = 255
-                tr_marks[idx, h - 1, w + 1, :] = 255
-                tr_marks[idx, h + 1, w - 1, :] = 255
         for cor in ts_cords:
             for (idx, h, w) in cor:
-                ts_marks[idx, h - 1, w, :] = 255
                 ts_marks[idx, h, w, :] = 255
-                ts_marks[idx, h + 1, w, :] = 255
-                ts_marks[idx, h, w - 1, :] = 255
-                ts_marks[idx, h, w + 1, :] = 255
-                ts_marks[idx, h - 1, w - 1, :] = 255
-                ts_marks[idx, h + 1, w + 1, :] = 255
-                ts_marks[idx, h - 1, w + 1, :] = 255
-                ts_marks[idx, h + 1, w - 1, :] = 255
         return tr_marks, ts_marks
 
     def get_class_dist(self):
@@ -301,3 +286,89 @@ def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25):
     cor = [(idx, int(b), int(a)) for a, b in zip(xx, yy)]
 
     return cor
+
+
+class ClientDatasetCelebA:
+    def __init__(self, client_id, dataset, root_dataset
+                 , client_tr_idx, client_ts_idx, image_size):
+        """
+
+        :param client_id:
+        :param dataset: dataset name. enumerator DatasetName
+        :param root_dataset: root of the dataset
+        :param client_tr_idx: a list of tr samples index: [sample index of the client]
+        :param client_ts_idx: a list of ts samples index: [sample index of the client]
+        # :param client_tr_data: a tensor of tr samples [n_sample * h * w * channel]
+        # :param client_ts_data: a tensor of ts samples [n_sample * h * w * channel]
+        """
+
+        self.client_id = client_id
+        logging.info("distribute data to client: {:d}".format(self.client_id))
+
+        self.dataset = dataset
+        logging.info("dataset: " + self.dataset.value)
+
+        self.root_dataset = root_dataset
+        logging.info("dataset: " + self.root_dataset)
+
+        self.client_tr_idx = client_tr_idx
+        self.client_ts_idx = client_ts_idx
+
+        self.image_size = image_size
+
+        self.n_tr = len(self.client_tr_idx)
+        self.n_ts = len(self.client_ts_idx)
+        self.n_samples = self.n_tr + self.n_ts
+
+        self.transformer = transforms.Compose([transforms.Resize(self.image_size)
+                                              , transforms.CenterCrop(self.image_size)
+                                              , transforms.ToTensor()
+                                              , transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        self.client_tr_data = []
+        self.client_ts_data = []
+
+        for img_idx in self.client_tr_idx:
+            img = self.transformer(Image.open(os.path.join(root_dataset, img_idx))).unsqueeze(0)
+            self.client_tr_data.append(img)
+
+        for img_idx in self.client_ts_idx:
+            img = self.transformer(Image.open(os.path.join(root_dataset, img_idx))).unsqueeze(0)
+            self.client_ts_data.append(img)
+
+        self.client_tr_data= torch.cat(self.client_tr_data, dim=0)
+        self.client_ts_data = torch.cat(self.client_ts_data, dim=0)
+
+    def get_fed_dataset(self, is_training):
+        if is_training:
+            return FedDatasetCelebA(self.client_id, self.dataset
+                              , self.client_tr_data, self.image_size, is_training)
+        else:
+            return FedDatasetCelebA(self.client_id, self.dataset
+                              , self.client_ts_data, self.image_size, is_training)
+
+
+class FedDatasetCelebA(Dataset):
+    def __init__(self, c_id, dataset, tensor_data, img_size, is_training):
+        """
+
+        :param c_id:
+        :param dataset: dataset name. enumerator DatasetName
+        :param tensor_data: a tensor of samples [n_sample * h * w * channel]
+        :param img_size: (h * w *c)
+        :param is_training: is training set
+        """
+
+        self.c_id = c_id
+        self.dataset = dataset
+        self.is_training = is_training
+
+        self.data = tensor_data
+        self.img_size = img_size
+
+    def __getitem__(self, index):
+        img = self.data[index]
+        return img
+
+    def __len__(self):
+        return self.data.shape[0]
