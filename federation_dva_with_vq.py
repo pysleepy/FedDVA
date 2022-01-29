@@ -4,40 +4,42 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import torch
+from torch.functional import F
 
 from fed_server import aggregate
-# from fed_client_dva_digits import FedClient
-from fed_client_vq_dva_digits import FedClient
+from fed_client_dva import FedClient
 
 from utils.focal_loss import FocalLoss
 
 
 class args:
-    use_cuda = True
-    device = 'cuda' if torch.cuda.is_available() and use_cuda else 'cpu'
-
-    batch = 64
-    learning_rate = 0.001
-    n_rounds = 1
-    epoch_encoder = 1
-    epoch_decoder = 1
-
+    shared_list = {'backbone_z', 'backbone_c', 'encoder_c', 'encoder_z', 'embedding_z', 'embedding_x'}
+    # criterion = torch.nn.MSELoss()
+    optimizer_func = torch.optim.Adam
+    criterion = FocalLoss(gamma=5)
+    in_h = 28
+    in_w = 28
+    in_channels = 1
+    hidden_dims = [64, 64 * 2, 64 * 4, 64*8]
     d_z = 1
     d_c = 1
     xi = 0.5
-    lbd_dec_z = 1.
-    lbd_dec_c = 1.
+    lbd_dec = 1.
     lbd_z = 1.
-    lbd_c = 0.
+    lbd_c = 1.
     lbd_cc = 1.
+
+    use_cuda = True
+    device = 'cuda' if torch.cuda.is_available() and use_cuda else 'cpu'
+    batch = 256
+    lr = 0.001
+    n_rounds = 1
+    epoch_encoder_z = 1
+    epoch_encoder_c = 1
+    epoch_decoder = 1
     n_resamples = 1
-    percent = 0.1
 
-    shared_modules = {'backbone_z', 'backbone_c', 'encoder_c', 'encoder_z', 'vq_encoder'}
-    optimizer_func = torch.optim.Adam
-    # criterion = torch.nn.MSELoss()
-    criterion = FocalLoss(gamma=5)
-
+    n_clients = 5
 
 # init data loaders
 # tr_loaders, ts_loaders = prepare_digits(args)
@@ -62,42 +64,27 @@ ts_loaders = [torch.utils.data.DataLoader(ts_dataset, batch_size=1000)
 
 
 # init models
-"""
-global_model = FedClient(-1, args.shared_modules.union('decoder_z', 'decoder_c')
-                         , args.optimizer_func, args.criterion
-                         , args.d_z, args.d_c, args.xi
-                         , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc, 1)
+global_model = FedClient(-1, args.shared_list.union({"decoder"}), args.optimizer_func, args.criterion
+                           , args.in_h, args.in_w, args.in_channels, args.hidden_dims
+                           , args.d_z, args.d_c, args.xi, args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc)
 global_model.model = global_model.model.to(args.device)
 
-client_models = [FedClient(c_id, args.shared_modules.union('decoder_z', 'decoder_c')
-                           , args.optimizer_func, args.criterion
-                           , args.d_z, args.d_c, args.xi
-                           , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc, 1)
-                 for c_id in client_ids]
-"""
-global_model = FedClient(-1, args.shared_modules.union('decoder_z', 'decoder_c')
-                         , args.optimizer_func, args.criterion
-                         , args.d_z, args.d_c, args.xi
-                         , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc, 1, 10)
-global_model.model = global_model.model.to(args.device)
-
-client_models = [FedClient(c_id, args.shared_modules.union('decoder_z', 'decoder_c')
-                           , args.optimizer_func, args.criterion
-                           , args.d_z, args.d_c, args.xi
-                           , args.lbd_dec_z, args.lbd_dec_c, args.lbd_z, args.lbd_c, args.lbd_cc, 1, 10)
+client_models = [FedClient(int(c_id), args.shared_list.union({"decoder"}), args.optimizer_func, args.criterion
+                           , args.in_h, args.in_w, args.in_channels, args.hidden_dims
+                           , args.d_z, args.d_c, args.xi, args.lbd_dec, args.lbd_z, args.lbd_c, args.lbd_cc)
                  for c_id in client_ids]
 
 for client_model in client_models:
     client_model.update_model(global_model)
-    client_model.shared_list = args.shared_modules
+    client_model.shared_list = args.shared_list
 
 # communication rounds
 for r in range(args.n_rounds):
     print("round: " + str(r))
     for client_id, (tr_loader, ts_loader, n_sample, client_model) in enumerate(
             zip(tr_loaders, ts_loaders, n_tr_samples, client_models)):
-        client_model.fit(args.device, r, tr_loader, args.epoch_encoder, args.epoch_decoder
-                         , args.learning_rate, args.n_resamples)
+        client_model.fit(args.device, r, tr_loader, args.epoch_encoder_z, args.epoch_encoder_c, args.epoch_decoder
+                         , args.lr, args.n_resamples)
     for para in global_model.model.parameters():
         para.data = torch.zeros_like(para.data)
     global_model = aggregate(global_model, client_models, n_tr_samples)
@@ -108,34 +95,22 @@ for r in range(1):
     print("round: " + str(r))
     for client_id, (tr_loader, ts_loader, n_sample, client_model) in enumerate(
             zip(tr_loaders, ts_loaders, n_tr_samples, client_models)):
-        client_model.fit(args.device, r, tr_loader, args.epoch_encoder, args.epoch_decoder
-                         , args.learning_rate, args.n_resamples)
-    for para in global_model.model.parameters():
-        para.data = torch.zeros_like(para.data)
-    global_model = aggregate(global_model, client_models, n_tr_samples)
+        client_model.fit(args.device, r, tr_loader, 0, args.epoch_encoder_z, args.epoch_encoder_c
+                         , args.lr, args.n_resamples)
 
-ts_loader = ts_loaders[0]
+tl = ts_loaders[0]
 md = client_models[0]
 i = np.random.randint(64)
-x, x_hat_z, z,  mu_z, log_var_z, x_hat_c, c, mu_c, log_var_c = md.evaluate(args.device, ts_loader, args.n_resamples)
+x, x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = md.evaluate(args.device, tl, args.n_resamples)
 
-x = x.to("cpu")
-rec_z = x_hat_z.detach().to("cpu")
-rec_c = x_hat_c.detach().to("cpu")
-img, rec_z, rec_c = x[i].numpy().squeeze()\
-    , rec_z[i].numpy().squeeze()\
-    , rec_c[i].numpy().squeeze()
+origin = x.to("cpu")
+rec = x_hat.detach().to("cpu")
+origin, rec, = F.relu(origin[i]).numpy().squeeze(), F.relu(rec[i]).numpy().squeeze()
 plt.figure()
-plt.subplot(2, 2, 1)
+plt.subplot(1, 2, 1)
 plt.title("origin")
-plt.imshow(img)
-plt.subplot(2, 2, 2)
-plt.title("rec_z")
-plt.imshow(rec_z)
-plt.subplot(2, 2, 3)
-plt.title("rec_c")
-plt.imshow(rec_c)
-plt.subplot(2, 2, 4)
+plt.imshow(origin)
+plt.subplot(1, 2, 2)
 plt.title("rec")
-plt.imshow(rec_z+rec_c)
+plt.imshow(rec)
 plt.show()

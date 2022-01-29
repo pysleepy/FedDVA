@@ -16,6 +16,8 @@ class ImageDatasetName(Enum):
     FashionMNIST = "FashionMNIST"
     CIFAR10 = "CIFAR10"
     CIFAR100 = "CIFAR100"
+    DomainNet = "DomainNet"
+    CelebA = "CelebA"
 
 
 class ClientDataset:
@@ -96,10 +98,26 @@ class ClientDataset:
 
         for cor in tr_cords:
             for (idx, h, w) in cor:
+                tr_marks[idx, h - 1, w, :] = 255
                 tr_marks[idx, h, w, :] = 255
+                tr_marks[idx, h + 1, w, :] = 255
+                tr_marks[idx, h, w - 1, :] = 255
+                tr_marks[idx, h, w + 1, :] = 255
+                tr_marks[idx, h - 1, w - 1, :] = 255
+                tr_marks[idx, h + 1, w + 1, :] = 255
+                tr_marks[idx, h - 1, w + 1, :] = 255
+                tr_marks[idx, h + 1, w - 1, :] = 255
         for cor in ts_cords:
             for (idx, h, w) in cor:
+                ts_marks[idx, h - 1, w, :] = 255
                 ts_marks[idx, h, w, :] = 255
+                ts_marks[idx, h + 1, w, :] = 255
+                ts_marks[idx, h, w - 1, :] = 255
+                ts_marks[idx, h, w + 1, :] = 255
+                ts_marks[idx, h - 1, w - 1, :] = 255
+                ts_marks[idx, h + 1, w + 1, :] = 255
+                ts_marks[idx, h - 1, w + 1, :] = 255
+                ts_marks[idx, h + 1, w - 1, :] = 255
         return tr_marks, ts_marks
 
     def get_class_dist(self):
