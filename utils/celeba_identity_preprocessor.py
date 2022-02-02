@@ -64,14 +64,14 @@ def allocate_celebA_identity(path_list_identity, path_list_attrs, n_clients, n_t
 
 
 if __name__ == '__main__':
-    path_list_identity = "../data/Images/CelebA/Anno/identity_CelebA.txt"
-    path_list_attrs = "../data/Images/CelebA/Anno/list_attr_celeba.txt"
-    root_dataset = "../data/Images/CelebA/img_align_celeba"
+    path_list_identity = "./data/Images/CelebA/Anno/identity_CelebA.txt"
+    path_list_attrs = "./data/Images/CelebA/Anno/list_attr_celeba.txt"
+    root_dataset = "./data/Images/CelebA/img_align_celeba"
 
     root_images = "data/Images"
-    root_clients = "../clients/CelebA_Identity"
+    root_clients = "./clients/CelebA_Identity"
 
-    n_clients = 10
+    n_clients = 20
     n_tr = 5000
     n_ts = 1000
     n_image_perperson = 30
@@ -104,5 +104,5 @@ if __name__ == '__main__':
         f.write("n_tr: {:d}, n_ts: {:d}, n_clients: {:d}\n".format(n_tr, n_ts, n_clients))
         f.write(" ".join(attr_list) + "\n")
         for c_attr in client_attr_summary:
-            f.write(" ".join([str(int(a)) for a in c_attr]))
+            f.write(" ".join([str(int(a)) for a in c_attr])+"\n")
     plt.show()
