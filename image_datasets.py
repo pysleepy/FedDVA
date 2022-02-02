@@ -372,3 +372,96 @@ class FedDatasetCelebA(Dataset):
 
     def __len__(self):
         return self.data.shape[0]
+
+
+class ClientDatasetDomainNet:
+    def __init__(self, client_id, dataset
+                 , client_tr_list, client_tr_label
+                 , client_ts_list, client_ts_label
+                 , image_size):
+        """
+
+        :param client_id:
+        :param root_dataset: root of the dataset
+        :param client_tr_data: a list of tr samples index: [sample]
+        :param client_tr_label: a list of tr samples index: [sample]
+        :param client_ts_data: a list of ts samples index: [sample index of the client]
+        :param client_ts_label: a list of tr samples index: [sample]
+        :param image_size
+        """
+
+        self.client_id = client_id
+        logging.info("distribute data to client: {:d}".format(self.client_id))
+
+        self.dataset = dataset
+        logging.info("dataset: " + self.dataset.value)
+
+        self.client_tr_list = client_tr_list
+        self.client_tr_label = torch.tensor(client_tr_label)
+        self.client_ts_list = client_ts_list
+        self.client_ts_label = torch.tensor(client_ts_label)
+
+        self.image_size = image_size
+
+        self.n_tr = len(self.client_tr_list)
+        self.n_ts = len(self.client_ts_list)
+        self.n_samples = self.n_tr + self.n_ts
+
+        self.transformer = transforms.Compose([transforms.Resize(self.image_size)
+                                               , transforms.CenterCrop(self.image_size)
+                                               , transforms.ToTensor()
+                                               , transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        self.client_tr_data = []
+        self.client_ts_data = []
+
+        for img in self.client_tr_list:
+            self.client_tr_data.append(self.transformer(img).unsqueeze(0))
+
+        for img in self.client_ts_list:
+            self.client_ts_data.append(self.transformer(img).unsqueeze(0))
+
+        self.client_tr_data = torch.cat(self.client_tr_data, dim=0)
+        self.client_ts_data = torch.cat(self.client_ts_data, dim=0)
+
+    def get_fed_dataset(self, is_training):
+        if is_training:
+            return FedDatasetDomainNet(self.client_id, self.dataset
+                                       , self.client_tr_data
+                                       , self.client_tr_label
+                                       , self.image_size, is_training)
+        else:
+            return FedDatasetDomainNet(self.client_id, self.dataset
+                                       , self.client_ts_data
+                                       , self.client_ts_label
+                                       , self.image_size, is_training)
+
+
+class FedDatasetDomainNet(Dataset):
+    def __init__(self, c_id, dataset, tensor_data, tensor_label, img_size, is_training):
+        """
+
+        :param c_id:
+        :param dataset: dataset name. enumerator DatasetName
+        :param tensor_data: a tensor of samples [n_sample]
+        :param list_label
+        :param img_size:
+        :param is_training: is training set
+        """
+
+        self.c_id = c_id
+        self.dataset = dataset
+        self.is_training = is_training
+
+        self.data = tensor_data
+        self.label = tensor_label
+
+        self.img_size = img_size
+
+    def __getitem__(self, index):
+        img = self.data[index]
+        label = self.label[index]
+        return img, label
+
+    def __len__(self):
+        return self.data.shape[0]
