@@ -19,7 +19,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 
 def preprocess_domain_net():
-    with zipfile.ZipFile('data/Images/DimainNet/clipart.zip') as thezip:
+    with zipfile.ZipFile('data/Images/DomainNet/clipart.zip') as thezip:
         with thezip.open('clipart/aircraft_carrier/clipart_001_000018.jpg', mode='r') as thefile:
             x = thefile.read()
     imageStream = io.BytesIO(x)
