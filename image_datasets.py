@@ -376,17 +376,17 @@ class FedDatasetCelebA(Dataset):
 
 class ClientDatasetDomainNet:
     def __init__(self, client_id, dataset
-                 , client_tr_list, client_tr_label
-                 , client_ts_list, client_ts_label
+                 , client_tr_data, client_tr_label
+                 , client_ts_data, client_ts_label
                  , image_size):
         """
 
         :param client_id:
-        :param root_dataset: root of the dataset
-        :param client_tr_data: a list of tr samples index: [sample]
-        :param client_tr_label: a list of tr samples index: [sample]
-        :param client_ts_data: a list of ts samples index: [sample index of the client]
-        :param client_ts_label: a list of tr samples index: [sample]
+        :param dataset: name of the dataset
+        :param client_tr_data: a tensor of tr samples index: [sample]
+        :param client_tr_label: a tensor of tr samples index: [sample]
+        :param client_ts_data: a tensor of ts samples index: [sample index of the client]
+        :param client_ts_label: a tensor of tr samples index: [sample]
         :param image_size
         """
 
@@ -396,33 +396,16 @@ class ClientDatasetDomainNet:
         self.dataset = dataset
         logging.info("dataset: " + self.dataset.value)
 
-        self.client_tr_list = client_tr_list
+        self.client_tr_data = client_tr_data
         self.client_tr_label = torch.tensor(client_tr_label)
-        self.client_ts_list = client_ts_list
+        self.client_ts_data = client_ts_data
         self.client_ts_label = torch.tensor(client_ts_label)
 
         self.image_size = image_size
 
-        self.n_tr = len(self.client_tr_list)
-        self.n_ts = len(self.client_ts_list)
+        self.n_tr = len(self.client_tr_data)
+        self.n_ts = len(self.client_ts_data)
         self.n_samples = self.n_tr + self.n_ts
-
-        self.transformer = transforms.Compose([transforms.Resize(self.image_size)
-                                               , transforms.CenterCrop(self.image_size)
-                                               , transforms.ToTensor()
-                                               , transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-        self.client_tr_data = []
-        self.client_ts_data = []
-
-        for img in self.client_tr_list:
-            self.client_tr_data.append(self.transformer(img).unsqueeze(0))
-
-        for img in self.client_ts_list:
-            self.client_ts_data.append(self.transformer(img).unsqueeze(0))
-
-        self.client_tr_data = torch.cat(self.client_tr_data, dim=0)
-        self.client_ts_data = torch.cat(self.client_ts_data, dim=0)
 
     def get_fed_dataset(self, is_training):
         if is_training:

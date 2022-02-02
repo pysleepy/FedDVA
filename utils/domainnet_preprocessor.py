@@ -23,6 +23,13 @@ logging.getLogger().setLevel(logging.INFO)
 def load_domainnet_data(path_img_list, path_zipped_file, label_dict):
     img_list = []
     label_list = []
+
+    transformer = transforms.Compose([transforms.Resize(image_size)
+                                      , transforms.CenterCrop(image_size)
+                                      , transforms.ToTensor()
+                                      , transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+
     with open(path_img_list) as f:
         for line in f:
             img = line.strip().split()[0].strip()
@@ -31,6 +38,7 @@ def load_domainnet_data(path_img_list, path_zipped_file, label_dict):
                 img_list.append(img)
                 label_list.append(label_dict[label_text])
 
+    label_list = torch.tensor(label_list)
     feature_list = []
     with zipfile.ZipFile(path_zipped_file) as thezip:
         for img, label in zip(img_list, label_list):
@@ -38,15 +46,14 @@ def load_domainnet_data(path_img_list, path_zipped_file, label_dict):
                 x = thefile.read()
                 imageStream = io.BytesIO(x)
                 imageFile = Image.open(imageStream)
-                # pil_to_tensor = transformer(imageFile)
-                # feature_list.append(pil_to_tensor)
-                feature_list.append(imageFile)
-    # feature_list = torch.cat(feature_list, dim=0)
+                pil_to_tensor = transformer(imageFile).unsqueeze(0)
+                feature_list.append(pil_to_tensor)
+    feature_list = torch.cat(feature_list, dim=0)
     return feature_list, label_list
 
 
 if __name__ == '__main__':
-    path_img_list= '../data/Images/DomainNet'
+    path_img_list = '../data/Images/DomainNet'
     path_zipped_file = '../data/Images/DomainNet'
 
     root_clients = "../clients/DomainNet"
@@ -74,8 +81,6 @@ if __name__ == '__main__':
         client_tr_list, client_tr_label = load_domainnet_data(path_client_img_list_tr, path_client_zipped_file, label_dict)
         client_ts_list, client_ts_label = load_domainnet_data(path_client_img_list_ts, path_client_zipped_file, label_dict)
 
-        print(len(client_tr_list))
-        print(len(client_ts_list))
         client_dataset = ClientDatasetDomainNet(c_id, dataset_name
                                                 , client_tr_list, client_tr_label
                                                 , client_ts_list, client_ts_label
@@ -97,9 +102,3 @@ if __name__ == '__main__':
     plt.show()
 
 
-    """
-    for im in ptt:
-        plt.figure()
-        plt.imshow(np.transpose(F.relu(im).numpy(), [1, 2, 0]))
-    plt.show()
-    """
