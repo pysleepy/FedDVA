@@ -54,8 +54,8 @@ class VectorQuantizer(nn.Module):
 
         # Compute L2 distance between latents and embedding weights
         dist = torch.sum(flat_latents ** 2, dim=1, keepdim=True) + \
-               torch.sum(self.embedding.weight ** 2, dim=1) - \
-               2 * torch.matmul(flat_latents, self.embedding.weight.t())  # [BHW x K]
+            torch.sum(self.embedding.weight ** 2, dim=1) - \
+            2 * torch.matmul(flat_latents, self.embedding.weight.t())  # [BHW x K]
 
         # Get the encoding that has the min distance
         encoding_inds = torch.argmin(dist, dim=1).unsqueeze(1)  # [BHW, 1]
@@ -82,7 +82,6 @@ class VectorQuantizer(nn.Module):
 
 
 class ResidualLayer(nn.Module):
-
     def __init__(self, in_channels, out_channels):
         super(ResidualLayer, self).__init__()
         self.resblock = nn.Sequential(nn.Conv2d(in_channels, out_channels,
@@ -221,19 +220,18 @@ class DualEncoderWithVQ(nn.Module):
     def forward(self, x, on_c):
         x_z = self.backbone_z(x)
         x_z = torch.flatten(x_z, start_dim=1)  # N x (hidden_dims[-1]H'W')
-        mu_z, log_var_z = self.encoder_z(x_z)
-        z = reparameter(mu_z, log_var_z)
+        z = self.encoder_z(x_z)
         if not on_c:
             random_c = torch.zeros([2, x.shape[0], self.d_c], dtype=torch.float).to(x.device)
-            mu_c, log_var_c = random_c[0], random_c[1]
+            c = random_c[0], random_c[1]
         else:
             e_z = self.embedding_z(z.detach()).view(-1, self.in_h, self.in_w).unsqueeze(1)
             e_x = self.embedding_x(x)
             x_c = torch.cat([e_x, e_z], dim=1)
             x_c = self.backbone_c(x_c)
             x_c = torch.flatten(x_c, start_dim=1)  # N x (hidden_dims[-1]H'W')
-            mu_c, log_var_c = self.encoder_c(x_c)
-        c = reparameter(mu_c, log_var_c)
+            c = self.encoder_c(x_c)
+
         x_hat = self.decoder(torch.cat([z, c], dim=1))
         return x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c
 

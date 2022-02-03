@@ -184,9 +184,10 @@ class FedClient:
 
         for b_id, data in enumerate(ts_loader):
             # loading data
-            x = data
-            x = x.to(device)
+            x, y = data
+            x, y = x.to(device), y.to(device)
             x = x.repeat(n_resamples, 1, 1, 1)
+            y = y.repeat(n_resamples)
 
             x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
 
