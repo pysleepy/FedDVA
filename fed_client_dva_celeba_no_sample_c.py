@@ -54,9 +54,14 @@ class FedClient:
             epoch_loss_dec = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
-                x = data
-                x = x.to(device)
-                x = x.repeat(n_resamples, 1, 1, 1)
+                if type(data) == list:
+                    x, y = data
+                    x, y = x.to(device), y.to(device)
+                    x, y = x.repeat(n_resamples, 1, 1, 1), y.repeat(n_resamples)
+                else:
+                    x = data
+                    x = x.to(device)
+                    x = x.repeat(n_resamples, 1, 1, 1)
 
                 optimizer_decoder.zero_grad()
                 x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
@@ -82,9 +87,14 @@ class FedClient:
             epoch_constr_c = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
-                x = data
-                x = x.to(device)
-                x = x.repeat(n_resamples, 1, 1, 1)
+                if type(data) == list:
+                    x, y = data
+                    x, y = x.to(device), y.to(device)
+                    x, y = x.repeat(n_resamples, 1, 1, 1), y.repeat(n_resamples)
+                else:
+                    x = data
+                    x = x.to(device)
+                    x = x.repeat(n_resamples, 1, 1, 1)
 
                 optimizer_backbone_z.zero_grad()
                 optimizer_encoder_z.zero_grad()
@@ -165,9 +175,14 @@ class FedClient:
 
         for b_id, data in enumerate(ts_loader):
             # loading data
-            x = data
-            x = x.to(device)
-            x = x.repeat(n_resamples, 1, 1, 1)
+            if type(data) == list:
+                x, y = data
+                x, y = x.to(device), y.to(device)
+                x, y = x.repeat(n_resamples, 1, 1, 1), y.repeat(n_resamples)
+            else:
+                x = data
+                x = x.to(device)
+                x = x.repeat(n_resamples, 1, 1, 1)
 
             x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
 
