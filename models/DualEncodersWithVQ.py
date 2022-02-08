@@ -207,7 +207,7 @@ class DualEncoderWithVQ(nn.Module):
         x_z = self.encoder_z(x)
         z, vq_loss_z = self.vq_layer_z(x_z)
         if not on_c:
-            x_c = torch.rand([x.shape[0], self.c_channel, self.c_h, self.c_w])  # [N x C x H x W]
+            x_c = torch.rand([x.shape[0], self.c_channel, self.c_h, self.c_w], device=x.get_device())  # [N x C x H x W]
             c, vq_loss_c = self.vq_layer_c(x_c)  # [N x C x H x W]
         else:
             z_c = z.detach().permute(1, 0, 2, 3).contiguous()  # [N x C x Z_H x Z_W] -> [C x N x Z_H x Z_W]
