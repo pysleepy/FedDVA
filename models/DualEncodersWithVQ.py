@@ -224,7 +224,7 @@ class DualEncoderWithVQ(nn.Module):
         return x_hat, z,  c, vq_loss_z, vq_loss_c
 
     def generate(self, z, c):
-        z, vq_loss_z = self.vq_layer_c(z)
+        z, vq_loss_z = self.vq_layer_z(z)
         c, vq_loss_c = self.vq_layer_c(c)
         output = self.decoder(torch.cat([z, c], dim=1))
         return output, z, c, vq_loss_z, vq_loss_c
