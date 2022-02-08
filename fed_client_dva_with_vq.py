@@ -3,167 +3,176 @@ import torch
 from torch.functional import F
 import logging
 
-from models.DualEncodersWithVQ import DualEncoderWithVQ, loss_dkl, loss_reg_c
+from models.DualEncodersWithVQ import DualEncoderWithVQ
 
 
 class FedClient:
     def __init__(self, client_id, shared_module, optimizer_func, criterion
-                 , d_z, d_c, xi, lbd_dec_z, lbd_dec_c, lbd_z, lbd_c, lbd_cc, n_channels):
+                 , in_h, in_w, in_channels
+                 , hidden_dims
+                 , k_hidden_z, k_hidden_c
+                 , lbd_dec, beta_z, beta_c):
         self.shared_list = shared_module
         self.optimizer = optimizer_func
         self.criterion_dec_z = criterion
         self.criterion_dec_c = criterion
 
-        self.in_channel = n_channels
-        # self.hidden_dims = [32, 64, 128, 256, 512]
-        self.hidden_dims = [512, 256, 128]
-        # self.hidden_dims = [8, 16, 32, 64, 128]
-        self.d_z = d_z
-        self.d_c = d_c
+        self.in_h = in_h
+        self.in_w = in_w
+        self.in_channel = in_channels
 
-        self.lbd_dec_z = lbd_dec_z
-        self.lbd_dec_c = lbd_dec_c
-        self.lbd_z = lbd_z
-        self.lbd_c = lbd_c
-        self.lbd_cc = lbd_cc
-        self.xi = xi
+        self.hidden_dims = hidden_dims
+        self.z_h = int(self.in_h / (2 ** len(self.hidden_dims)))
+        self.z_w = int(self.in_w / (2 ** len(self.hidden_dims)))
+        self.c_h = int(self.in_h / (2 ** len(self.hidden_dims)))
+        self.c_w = int(self.in_w / (2 ** len(self.hidden_dims)))
 
-        self.model = DualEncoder(self.in_channel, self.hidden_dims, self.d_z, self.d_c)
+        self.z_channel = self.hidden_dims[-1]
+        self.c_channel = self.hidden_dims[-1]
+
+        self.k_hidden_z = k_hidden_z
+        self.k_hidden_c = k_hidden_c
+
+        self.lbd_dec = lbd_dec
+        self.beta_z = beta_z
+        self.beta_c = beta_c
+
+        self.model = DualEncoderWithVQ(self.in_h, self.in_w, self.in_channel, self.hidden_dims
+                                       , self.z_w, self.z_h, self.z_channel
+                                       , self.c_w, self.c_h, self.c_channel
+                                       , self.k_hidden_z, self.k_hidden_c
+                                       , self.beta_z, self.beta_c)
         self.round = []
         self.client_id = client_id
 
-    def fit(self, device, round, tr_loader, epoch_encoder, epoch_decoder, lr, n_resample):
+    def fit(self, device, round, tr_loader, epoch_encoder_z, epoch_encoder_c, epoch_decoder, lr):
         self.model = self.model.to(device)
         self.round.append(round)
         self.model.train()
 
-        optimizer_backbone_z = self.optimizer(self.model.backbone_z.parameters(), lr=lr)
-        optimizer_backbone_c = self.optimizer(self.model.backbone_c.parameters(), lr=lr)
         optimizer_encoder_z = self.optimizer(self.model.encoder_z.parameters(), lr=lr)
+        optimizer_vq_z = self.optimizer(self.model.vq_layer_z.parameters(), lr=lr)
+
+        optimizer_embedding_z = self.optimizer(self.model.embedding_z.parameters(), lr=lr)
+        optimizer_embedding_x = self.optimizer(self.model.embedding_x.parameters(), lr=lr)
         optimizer_encoder_c = self.optimizer(self.model.encoder_c.parameters(), lr=lr)
-        optimizer_dec_z = self.optimizer(self.model.decoder_z.parameters(), lr=lr)
-        optimizer_dec_c = self.optimizer(self.model.decoder_c.parameters(), lr=lr)
+        optimizer_vq_c = self.optimizer(self.model.vq_layer_c.parameters(), lr=lr)
+
+        optimizer_dec = self.optimizer(self.model.decoder.parameters(), lr=lr)
 
         logging.info("Optimizing Decoder")
         print("Optimizing Decoder")
         for ep in range(epoch_decoder):
             logging.info("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(round, self.client_id, ep))
             print("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(round, self.client_id, ep))
-            epoch_loss_z = []
-            epoch_loss_c = []
+            epoch_loss = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
-                x, y = data
-                x, y = x.to(device), y.to(device)
-                x = x.repeat(n_resample, 1, 1, 1)
-                y = y.repeat(n_resample, 1, 1, 1)
+                if type(data) == list:
+                    x, y = data
+                    x, y = x.to(device), y.to(device)
+                else:
+                    x = data.to(device)
 
-                optimizer_dec_z.zero_grad()
-                optimizer_dec_c.zero_grad()
-                x_hat_z, z, mu_z, log_var_z = self.model(x)
-                x_hat_c, c, mu_c, log_var_c = self.model(x, z.detach())
+                optimizer_dec.zero_grad()
+                x_hat, z, c, vq_loss_z, vq_loss_c = self.model(x, False)
 
                 # rec loss
-                loss_dec_z = self.criterion_dec_z(x_hat_z, x)
-                loss_dec_c = self.criterion_dec_z(x_hat_c, x)
-                epoch_loss_z.append(loss_dec_z.item())
-                epoch_loss_c.append(loss_dec_c.item())
-                loss_dec_z = self.lbd_dec_z * loss_dec_z
-                loss_dec_c = self.lbd_dec_c * loss_dec_c
-                loss_dec_z.backward()
-                loss_dec_c.backward()
-                optimizer_dec_z.step()
-                optimizer_dec_c.step()
+                loss_dec = self.criterion_dec_z(x_hat, x)
+                epoch_loss.append(loss_dec.item())
+                loss_dec = self.lbd_dec * loss_dec
+                loss_dec.backward()
+                optimizer_dec.step()
 
-            logging.info('Epoch Decoder_z Loss: {:.4f}, Decoder_c Loss: {:.4f}'.format(
-                np.mean(epoch_loss_z), np.mean(epoch_loss_c)))
-            print('Epoch Decoder_z Loss: {:.4f}, Decoder_c Loss: {:.4f}'.format(
-                np.mean(epoch_loss_z), np.mean(epoch_loss_c)))
+            logging.info('Epoch Decoder Loss: {:.4f}'.format(np.mean(epoch_loss)))
+            print('Epoch Decoder Loss: {:.4f}'.format(np.mean(epoch_loss)))
 
         logging.info("Optimizing Encoder")
         print("Optimizing Encoder")
-        for ep in range(epoch_encoder):
+        for ep in range(epoch_encoder_z):
             logging.info("Round: {:d}, Client: {:d}, Epoch Enc_z: {:d}".format(round, self.client_id, ep))
             print("Round: {:d}, Client: {:d}, Epoch Enc_z: {:d}".format(round, self.client_id, ep))
             epoch_dec_z = []
-            epoch_dkl_z = []
+            epoch_vq_loss_z = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
-                x, y = data
-                x, y = x.to(device), y.to(device)
-                x = x.repeat(n_resample, 1, 1, 1)
-                y = y.repeat(n_resample, 1, 1, 1)
+                if type(data) == list:
+                    x, y = data
+                    x, y = x.to(device), y.to(device)
+                else:
+                    x = data.to(device)
 
-                optimizer_backbone_z.zero_grad()
                 optimizer_encoder_z.zero_grad()
-                optimizer_dec_z.zero_grad()
+                optimizer_vq_z.zero_grad()
 
-                x_hat_z, z, mu_z, log_var_z = self.model(x)
+                optimizer_embedding_z.zero_grad()
+                optimizer_embedding_x.zero_grad()
+                optimizer_encoder_c.zero_grad()
+                optimizer_vq_c.zero_grad()
+                optimizer_dec.zero_grad()
+
+                x_hat, z, c, vq_loss_z, vq_loss_c = self.model(x, False)
 
                 # rec loss
-                loss_dec_z = self.criterion_dec_z(x_hat_z, x)
-                mu_z_prior = torch.zeros_like(mu_z, dtype=torch.float)
-                log_var_z_prior = torch.zeros_like(log_var_z, dtype=torch.float)
-                loss_dkl_z = loss_dkl(mu_z, log_var_z, mu_z_prior, log_var_z_prior)
+                loss_dec_z = self.criterion_dec_z(x_hat, x)
 
                 epoch_dec_z.append(torch.mean(loss_dec_z, dim=0).item())
-                epoch_dkl_z.append(torch.mean(loss_dkl_z, dim=0).item())
+                epoch_vq_loss_z.append(torch.mean(vq_loss_z, dim=0).item())
 
-                loss = self.lbd_dec_z * loss_dec_z + self.lbd_z * loss_dkl_z
+                loss = self.lbd_dec * loss_dec_z + vq_loss_z
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
-                optimizer_backbone_z.step()
                 optimizer_encoder_z.step()
+                optimizer_vq_z.step()
 
-            logging.info('Epoch Decoder_z Loss: ' + str(np.mean(epoch_dec_z)))
+            logging.info('Epoch Decoder Loss_z: ' + str(np.mean(epoch_dec_z)))
             print('Epoch Decoder Loss_z: ' + str(np.mean(epoch_dec_z)))
-            logging.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
-            print('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
+            logging.info('Epoch VQ_z Loss: ' + str(np.mean(epoch_vq_loss_z)))
+            print('Epoch VQ_z Loss: ' + str(np.mean(epoch_vq_loss_z)))
 
-        for ep in range(epoch_encoder):
+        for ep in range(epoch_encoder_c):
             logging.info("Round: {:d}, Client: {:d}, Epoch Enc_c: {:d}".format(round, self.client_id, ep))
             print("Round: {:d}, Client: {:d}, Epoch Enc_c: {:d}".format(round, self.client_id, ep))
             epoch_dec_c = []
-            epoch_dkl_c = []
-            epoch_constr_c = []
+            epoch_vq_loss_c = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
-                x, y = data
-                x, y = x.to(device), y.to(device)
-                x = x.repeat(n_resample, 1, 1, 1)
-                y = y.repeat(n_resample, 1, 1, 1)
+                if type(data) == list:
+                    x, y = data
+                    x, y = x.to(device), y.to(device)
+                else:
+                    x = data.to(device)
 
-                optimizer_backbone_c.zero_grad()
+                optimizer_encoder_z.zero_grad()
+                optimizer_vq_z.zero_grad()
+
+                optimizer_embedding_z.zero_grad()
+                optimizer_embedding_x.zero_grad()
                 optimizer_encoder_c.zero_grad()
-                optimizer_dec_c.zero_grad()
+                optimizer_vq_c.zero_grad()
+                optimizer_dec.zero_grad()
 
-                x_hat_z, z, mu_z, log_var_z = self.model(x)
-                x_hat_c, c, mu_c, log_var_c = self.model(x, z.detach())
+                x_hat_c, z, c, vq_loss_z, vq_loss_c = self.model(x, True)
 
                 # rec loss
                 loss_dec_c = self.criterion_dec_c(x_hat_c, x)
-                mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
-                log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
-                loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)
-                loss_constr_c = loss_reg_c(mu_c, log_var_c)
-
                 epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
-                epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
-                epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
+                epoch_vq_loss_c.append(torch.mean(vq_loss_c, dim=0).item())
 
-                loss = self.lbd_dec_c * loss_dec_c + self.lbd_c * loss_dkl_c \
-                    + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
+                loss = self.lbd_dec * loss_dec_c + vq_loss_c
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
-                optimizer_backbone_c.step()
-                optimizer_encoder_c.step()
 
-            logging.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec_c)))
+                optimizer_embedding_z.step()
+                optimizer_embedding_x.step()
+                optimizer_encoder_c.step()
+                optimizer_vq_c.step()
+                optimizer_dec.step()
+
+            logging.info('Epoch Decoder Loss_c: ' + str(np.mean(epoch_dec_c)))
             print('Epoch Decoder Loss_c: ' + str(np.mean(epoch_dec_c)))
-            logging.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
-            print('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
-            logging.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
-            print('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
+            logging.info('Epoch VQ_c Loss: ' + str(np.mean(epoch_vq_loss_c)))
+            print('Epoch VQ_c Loss: ' + str(np.mean(epoch_vq_loss_c)))
 
     def generate(self, device, z, c):
         self.model = self.model.to(device)
@@ -178,41 +187,39 @@ class FedClient:
                 named_para_target[1].data = named_para_source[1].detach().clone().data
         return self.model
 
-    def evaluate(self, device, ts_loader, n_resample):
+    def evaluate(self, device, ts_loader):
         self.model.to(device)
         self.model.eval()
-        epoch_dec_c = []
-        epoch_dkl_c = []
-        epoch_constr_c = []
+        epoch_dec = []
+        epoch_vq_loss_z = []
+        epoch_vq_loss_c = []
 
         for b_id, data in enumerate(ts_loader):
             # loading data
-            x, y = data
-            x, y = x.to(device), y.to(device)
-            x = x.repeat(n_resample, 1, 1, 1)
-            y = y.repeat(n_resample, 1, 1, 1)
+            if type(data) == list:
+                x, y = data
+                x, y = x.to(device), y.to(device)
+            else:
+                x = data.to(device)
 
-            x_hat_z, z, mu_z, log_var_z = self.model(x)
-            x_hat_c, c, mu_c, log_var_c = self.model(x, z.detach())
+            x_hat, z, c, vq_loss_z, vq_loss_c = self.model(x, True)
 
             # rec loss
-            loss_dec_c = self.criterion_dec_c(x_hat_c, x)
-            mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
-            log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
-            loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)
-            loss_constr_c = loss_reg_c(mu_c, log_var_c)
+            loss_dec = self.criterion_dec_c(x_hat, x)
+            epoch_dec.append(torch.mean(loss_dec, dim=0).item())
+            epoch_vq_loss_z.append(torch.mean(vq_loss_z, dim=0).item())
+            epoch_vq_loss_c.append(torch.mean(vq_loss_c, dim=0).item())
 
-            epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
-            epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
-            epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
+            logging.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec)))
+            print('Epoch Decoder Loss_c: ' + str(np.mean(epoch_dec)))
 
-            logging.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec_c)))
-            print('Epoch Decoder Loss_c: ' + str(np.mean(epoch_dec_c)))
-            logging.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
-            print('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
-            logging.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
-            print('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
-            return x, x_hat_z, z,  mu_z, log_var_z, x_hat_c, c, mu_c, log_var_c
+            logging.info('Epoch vq_z Loss: ' + str(np.mean(epoch_vq_loss_z)))
+            print('Epoch vq_z Loss: ' + str(np.mean(epoch_vq_loss_z)))
+
+            logging.info('Epoch vq_c Loss: ' + str(np.mean(epoch_vq_loss_c)))
+            print('Epoch vq_c Loss: ' + str(np.mean(epoch_vq_loss_c)))
+
+            return x, x_hat, z, c
 
     def upload_model(self):
         return self.shared_list, self.model

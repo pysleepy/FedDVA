@@ -48,26 +48,26 @@ class VectorQuantizer(nn.Module):
         self.embedding.weight.data.uniform_(-1 / self.K, 1 / self.K)
 
     def forward(self, latents):
-        latents = latents.permute(0, 2, 3, 1).contiguous()  # [B x C x H x W] -> [B x H x W x C]
+        latents = latents.permute(0, 2, 3, 1).contiguous()  # [N x C x H x W] -> [N x H x W x C]
         latents_shape = latents.shape
-        flat_latents = latents.view(-1, self.D)  # [BHW x C]
+        flat_latents = latents.view(-1, self.D)  # [NHW x C]
 
         # Compute L2 distance between latents and embedding weights
         dist = torch.sum(flat_latents ** 2, dim=1, keepdim=True) + \
             torch.sum(self.embedding.weight ** 2, dim=1) - \
-            2 * torch.matmul(flat_latents, self.embedding.weight.t())  # [BHW x K]
+            2 * torch.matmul(flat_latents, self.embedding.weight.t())  # [NHW x K]
 
         # Get the encoding that has the min distance
-        encoding_inds = torch.argmin(dist, dim=1).unsqueeze(1)  # [BHW, 1]
+        encoding_inds = torch.argmin(dist, dim=1).unsqueeze(1)  # [NHW, 1]
 
         # Convert to one-hot encodings
         device = latents.device
         encoding_one_hot = torch.zeros(encoding_inds.size(0), self.K, device=device)
-        encoding_one_hot.scatter_(1, encoding_inds, 1)  # [BHW x K]
+        encoding_one_hot.scatter_(1, encoding_inds, 1)  # [NHW x K]
 
         # Quantize the latents
-        quantized_latents = torch.matmul(encoding_one_hot, self.embedding.weight)  # [BHW, C]
-        quantized_latents = quantized_latents.view(latents_shape)  # [B x H x W x C]
+        quantized_latents = torch.matmul(encoding_one_hot, self.embedding.weight)  # [NHW, C]
+        quantized_latents = quantized_latents.view(latents_shape)  # [N x H x W x C]
 
         # Compute the VQ Losses
         commitment_loss = F.mse_loss(quantized_latents.detach(), latents)
@@ -78,7 +78,7 @@ class VectorQuantizer(nn.Module):
         # Add the residue back to the latents
         quantized_latents = latents + (quantized_latents - latents).detach()
 
-        return quantized_latents.permute(0, 3, 1, 2).contiguous(), vq_loss  # [B x C x H x W]
+        return quantized_latents.permute(0, 3, 1, 2).contiguous(), vq_loss  # [N x C x H x W]
 
 
 class ResidualLayer(nn.Module):
@@ -195,33 +195,36 @@ class DualEncoderWithVQ(nn.Module):
         self.encoder_z = Encoder(self.in_channel, self.hidden_dims, self.z_channel)
         self.vq_layer_z = VectorQuantizer(self.k_hidden_z, self.z_channel, self.beta_z)
 
-        self.embedding_z = LinearWithChannel(self.z_channel, self.in_h * self.in_w, self.w_z * self.h_z)
+        self.embedding_z = LinearWithChannel(self.z_w * self.z_w, self.in_h * self.in_w, self.z_channel)
         self.embedding_x = nn.Conv2d(self.in_channel, self.in_channel, 1)
 
-        self.encoder_c = Encoder(self.in_channel + (self.w_z * self.h_z), self.hidden_dims, self.c_channel)
+        self.encoder_c = Encoder(self.in_channel + self.z_channel, self.hidden_dims, self.c_channel)
         self.vq_layer_c = VectorQuantizer(self.k_hidden_c, self.c_channel, self.beta_c)
 
         self.decoder = Decoder(self.z_channel+self.c_channel, hidden_dims, self.in_channel)
 
     def forward(self, x, on_c):
         x_z = self.encoder_z(x)
-        print(x_z.shape)
-        z = self.vq_layer_z(x_z)
-        print(z.shape)
+        z, vq_loss_z = self.vq_layer_z(x_z)
         if not on_c:
-            random_c = torch.zeros([2, x.shape[0], self.d_c], dtype=torch.float).to(x.device)
-            c = random_c[0], random_c[1]
+            x_c = torch.rand([x.shape[0], self.c_channel, self.c_h, self.c_w])  # [N x C x H x W]
+            c, vq_loss_c = self.vq_layer_c(x_c)  # [N x C x H x W]
         else:
-            e_z = self.embedding_z(z.detach()).view(-1, self.in_h, self.in_w).unsqueeze(1)
+            z_c = z.detach().permute(1, 0, 2, 3).contiguous()  # [N x C x Z_H x Z_W] -> [C x N x Z_H x Z_W]
+            z_c = z_c.view(z.shape[1], z.shape[0], -1)  # [C x N x Z_H x Z_W] -> [C x N x Z_HZ_W]
+            # [C x N x Z_HZ_W] -> [C x N x IN_H x IN_W]
+            e_z = self.embedding_z(z_c).view(z.shape[1], z.shape[0], self.in_h, self.in_w)
+            e_z = e_z.permute(1, 0, 2, 3).contiguous()  # [C x N x IN_H x IN_W] -> [N x C x IN_H x IN_W]
             e_x = self.embedding_x(x)
             x_c = torch.cat([e_x, e_z], dim=1)
-            x_c = self.backbone_c(x_c)
-            x_c = torch.flatten(x_c, start_dim=1)  # N x (hidden_dims[-1]H'W')
-            c = self.encoder_c(x_c)
+            x_c = self.encoder_c(x_c)  # [N x C x H x W]
+            c, vq_loss_c = self.vq_layer_c(x_c)  # [N x C x H x W]
 
         x_hat = self.decoder(torch.cat([z, c], dim=1))
-        return x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c
+        return x_hat, z,  c, vq_loss_z, vq_loss_c
 
     def generate(self, z, c):
+        z, vq_loss_z = self.vq_layer_c(z)
+        c, vq_loss_c = self.vq_layer_c(c)
         output = self.decoder(torch.cat([z, c], dim=1))
-        return output
+        return output, z, c, vq_loss_z, vq_loss_c
