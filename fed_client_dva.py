@@ -56,8 +56,9 @@ class FedClient:
                 # loading data
                 x, y = data
                 x, y = x.to(device), y.to(device)
-                x = x.repeat(n_resamples, 1, 1, 1)
-                y = y.repeat(n_resamples, 1, 1, 1)
+                if n_resamples > 0:
+                    x = x.repeat(n_resamples, 1, 1, 1)
+                    y = y.repeat(n_resamples, 1, 1, 1)
 
                 optimizer_decoder.zero_grad()
                 x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
@@ -83,8 +84,9 @@ class FedClient:
                 # loading data
                 x, y = data
                 x, y = x.to(device), y.to(device)
-                x = x.repeat(n_resamples, 1, 1, 1)
-                y = y.repeat(n_resamples, 1, 1, 1)
+                if n_resamples > 0:
+                    x = x.repeat(n_resamples, 1, 1, 1)
+                    y = y.repeat(n_resamples, 1, 1, 1)
 
                 optimizer_backbone_z.zero_grad()
                 optimizer_encoder_z.zero_grad()
@@ -122,8 +124,9 @@ class FedClient:
                 # loading data
                 x, y = data
                 x, y = x.to(device), y.to(device)
-                x = x.repeat(n_resamples, 1, 1, 1)
-                y = y.repeat(n_resamples, 1, 1, 1)
+                if n_resamples > 0:
+                    x = x.repeat(n_resamples, 1, 1, 1)
+                    y = y.repeat(n_resamples, 1, 1, 1)
 
                 optimizer_embedding_z.zero_grad()
                 optimizer_embedding_x.zero_grad()
@@ -186,8 +189,9 @@ class FedClient:
             # loading data
             x, y = data
             x, y = x.to(device), y.to(device)
-            x = x.repeat(n_resamples, 1, 1, 1)
-            y = y.repeat(n_resamples, 1, 1, 1)
+            if n_resamples > 0:
+                x = x.repeat(n_resamples, 1, 1, 1)
+                y = y.repeat(n_resamples, 1, 1, 1)
 
             x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
 
