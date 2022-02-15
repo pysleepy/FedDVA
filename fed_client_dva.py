@@ -1,39 +1,66 @@
+import os
+import datetime
+import logging
+
 import numpy as np
 import torch
 from torch.functional import F
-import logging
-
-from models.DualEncoders import DualEncoder, loss_dkl, loss_reg_c
+from models.funcs import loss_dkl, loss_reg_c
 
 
 class FedClient:
     def __init__(self, client_id, shared_list, optimizer_func, criterion
-                 , in_h, in_w, in_channels, hidden_dims
-                 , d_z, d_c, xi, lbd_dec, lbd_z, lbd_c, lbd_cc):
+                 , client_root, dual_encoder_model
+                 , xi, lbd_dec, lbd_z, lbd_c, lbd_cc):
         self.client_id = int(client_id)
         self.shared_list = shared_list
         self.optimizer = optimizer_func
         self.criterion_dec = criterion
 
-        self.in_h = in_h
-        self.in_w = in_w
-        self.in_channel = in_channels
-        self.hidden_dims = hidden_dims  # [64, 64 * 2, 64 * 4, 64*8]
+        self.client_root = client_root
+        self.model = dual_encoder_model
 
-        self.d_z = d_z
-        self.d_c = d_c
+        self.path_to_snapshots = os.path.join(self.client_root, str(self.client_id), "snapshots")
+        if self.client_id != -1 and not os.path.exists(self.path_to_snapshots):
+            os.makedirs(self.path_to_snapshots)
+        self.path_to_logs = os.path.join(self.client_root, str(self.client_id), "logs")
+        if self.client_id != -1 and not os.path.exists(self.path_to_logs):
+            os.makedirs(self.path_to_logs)
+        if self.client_id != -1:
+            tmp_n = 0
+            tmp_log_name = datetime.datetime.today().strftime("log_%Y_%m_%d")
+            log_name = tmp_log_name + "_{:d}".format(tmp_n)
+            while os.path.exists(os.path.join(self.path_to_logs, log_name)):
+                tmp_n += 1
+                log_name = tmp_log_name + "_{:d}".format(tmp_n)
+            self.logger = logging.getLogger('federation.client:{:d}'.format(self.client_id))
+            # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            formatter = logging.Formatter('%(message)s')
+            fh = logging.FileHandler(os.path.join(self.path_to_logs, log_name))
+            fh.setLevel(logging.INFO)
+            fh.setFormatter(formatter)
+            self.logger.addHandler(fh)
+            self.logger.info(datetime.datetime.today().strftime("client: {:d} log %Y_%m_%d").format(self.client_id))
+            self.logger.info('Initialize client')
+            self.logger.info("model: " + str(self.model.MODEL_NAME))
+            self.logger.info("d_latent_z: {:d}, d_latent_c: {:d}".format(self.model.d_z, self.model.d_c))
+
         self.xi = xi
         self.lbd_dec = lbd_dec
         self.lbd_z = lbd_z
         self.lbd_c = lbd_c
         self.lbd_cc = lbd_cc
 
-        self.model = DualEncoder(self.in_h, self.in_w, self.in_channel, self.hidden_dims, self.d_z, self.d_c)
-        self.round = []
+        self.n_round = 0
+        self.n_epc_ec_z = 0
+        self.n_epc_ec_c = 0
+        self.n_epc_dec = 0
 
-    def fit(self, device, cur_round, tr_loader, epoch_encoder_z, epoch_encoder_c, epoch_decoder, lr, n_resamples):
+    def fit(self, device, cur_round, tr_loader
+            , epoch_encoder_z, epoch_encoder_c, epoch_decoder, lr, n_resamples):
+        self.n_round += 1
+
         self.model = self.model.to(device)
-        self.round.append(cur_round)
         self.model.train()
 
         optimizer_backbone_z = self.optimizer(self.model.backbone_z.parameters(), lr=lr)
@@ -46,22 +73,23 @@ class FedClient:
 
         optimizer_decoder = self.optimizer(self.model.decoder.parameters(), lr=lr)
 
-        logging.info("Optimizing Decoder")
-        print("Optimizing Decoder")
+        self.logger.info("Optimizing Decoder")
         for ep in range(epoch_decoder):
-            logging.info("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(cur_round, self.client_id, ep))
-            print("Round: {:d}, Client: {:d}, Epoch Dec: {:d}".format(cur_round, self.client_id, ep))
+            self.logger.info("Round: {:d}, Epoch Dec: {:d}".format(cur_round, ep))
+            self.n_epc_dec += 1
             epoch_loss_dec = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
-                x, y = data
-                x, y = x.to(device), y.to(device)
+                if type(data) == list:
+                    x, _ = data
+                else:
+                    x = data
+                x = x.to(device)
                 if n_resamples > 0:
                     x = x.repeat(n_resamples, 1, 1, 1)
-                    y = y.repeat(n_resamples, 1, 1, 1)
 
                 optimizer_decoder.zero_grad()
-                x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
+                x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
 
                 # rec loss
                 loss_dec = self.criterion_dec(x_hat, x)
@@ -70,29 +98,29 @@ class FedClient:
                 loss_dec.backward()
                 optimizer_decoder.step()
 
-            logging.info('Epoch Decoder Loss: {:.4f}'.format(np.mean(epoch_loss_dec)))
-            print('Epoch Decoder Loss: {:.4f}'.format(np.mean(epoch_loss_dec)))
+            self.logger.info('Epoch Decoder Loss: {:.4f}'.format(np.mean(epoch_loss_dec)))
 
-        logging.info("Optimizing Encoder")
-        print("Optimizing Encoder")
+        self.logger.info("Optimizing Encoder")
         for ep in range(epoch_encoder_z):
-            logging.info("Round: {:d}, Client: {:d}, Epoch Enc_z: {:d}".format(cur_round, self.client_id, ep))
-            print("Round: {:d}, Client: {:d}, Epoch Enc_z: {:d}".format(cur_round, self.client_id, ep))
+            self.logger.info("Round: {:d}, Epoch Enc_z: {:d}".format(cur_round, ep))
+            self.n_epc_ec_z += 1
             epoch_dec_z = []
             epoch_dkl_z = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
-                x, y = data
-                x, y = x.to(device), y.to(device)
+                if type(data) == list:
+                    x, _ = data
+                else:
+                    x = data
+                x = x.to(device)
                 if n_resamples > 0:
                     x = x.repeat(n_resamples, 1, 1, 1)
-                    y = y.repeat(n_resamples, 1, 1, 1)
 
                 optimizer_backbone_z.zero_grad()
                 optimizer_encoder_z.zero_grad()
                 optimizer_decoder.zero_grad()
 
-                x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
+                x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
 
                 # rec loss
                 loss_dec_z = self.criterion_dec(x_hat, x)
@@ -109,24 +137,24 @@ class FedClient:
                 optimizer_backbone_z.step()
                 optimizer_encoder_z.step()
 
-            logging.info('Epoch Decoder_z Loss: ' + str(np.mean(epoch_dec_z)))
-            print('Epoch Decoder Loss_z: ' + str(np.mean(epoch_dec_z)))
-            logging.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
-            print('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
+            self.logger.info('Epoch Decoder_z Loss: ' + str(np.mean(epoch_dec_z)))
+            self.logger.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
 
         for ep in range(epoch_encoder_c):
-            logging.info("Round: {:d}, Client: {:d}, Epoch Enc_c: {:d}".format(cur_round, self.client_id, ep))
-            print("Round: {:d}, Client: {:d}, Epoch Enc_c: {:d}".format(cur_round, self.client_id, ep))
+            self.logger.info("Round: {:d}, Epoch Enc_c: {:d}".format(cur_round, ep))
+            self.n_epc_ec_c += 1
             epoch_dec_c = []
             epoch_dkl_c = []
             epoch_constr_c = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
-                x, y = data
-                x, y = x.to(device), y.to(device)
+                if type(data) == list:
+                    x, _ = data
+                else:
+                    x = data
+                x = x.to(device)
                 if n_resamples > 0:
                     x = x.repeat(n_resamples, 1, 1, 1)
-                    y = y.repeat(n_resamples, 1, 1, 1)
 
                 optimizer_embedding_z.zero_grad()
                 optimizer_embedding_x.zero_grad()
@@ -134,7 +162,7 @@ class FedClient:
                 optimizer_encoder_c.zero_grad()
                 optimizer_decoder.zero_grad()
 
-                x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
+                x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
 
                 # rec loss
                 loss_dec_c = self.criterion_dec(x_hat, x)
@@ -157,20 +185,19 @@ class FedClient:
                 optimizer_encoder_c.step()
                 optimizer_decoder.step()
 
-            logging.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec_c)))
-            print('Epoch Decoder Loss_c: ' + str(np.mean(epoch_dec_c)))
-            logging.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
-            print('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
-            logging.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
-            print('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
+            self.logger.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec_c)))
+            self.logger.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
+            self.logger.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
 
     def generate(self, device, z, c):
+        self.logger.info("generate samples")
         self.model = self.model.to(device)
         self.model.eval()
         z, c = z.to(device), c.to(device)
         return self.model.generate(z, c)
 
     def update_model(self, model_source):
+        self.logger.info("update local models")
         for named_para_target, named_para_source in zip(self.model.named_parameters(),
                                                         model_source.model.named_parameters()):
             if named_para_source[0].split(".")[0] in self.shared_list:
@@ -178,7 +205,8 @@ class FedClient:
         return self.model
 
     def evaluate(self, device, ts_loader, n_resamples):
-        self.model.to(device)
+        self.logger.info("evaluate models")
+        self.model = self.model.to(device)
         self.model.eval()
         epoch_dec = []
         epoch_dkl_z = []
@@ -187,13 +215,15 @@ class FedClient:
 
         for b_id, data in enumerate(ts_loader):
             # loading data
-            x, y = data
-            x, y = x.to(device), y.to(device)
+            if type(data) == list:
+                x, _ = data
+            else:
+                x = data
+            x = x.to(device)
             if n_resamples > 0:
                 x = x.repeat(n_resamples, 1, 1, 1)
-                y = y.repeat(n_resamples, 1, 1, 1)
 
-            x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
+            x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
 
             # rec loss
             loss_dec = self.criterion_dec(x_hat, x)
@@ -212,15 +242,30 @@ class FedClient:
             epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
             epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
 
-            logging.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec)))
-            print('Epoch Decoder Loss_c: ' + str(np.mean(epoch_dec)))
-            logging.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
-            print('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
-            logging.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
-            print('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
-            logging.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
-            print('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
+            self.logger.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec)))
+            self.logger.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
+            self.logger.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
+            self.logger.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
             return x, x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c
 
     def upload_model(self):
+        self.logger.info("upload local model")
         return self.shared_list, self.model
+
+    def save_model(self, model_name):
+        pth_to_file = os.path.join(self.path_to_snapshots, model_name)
+        f = {"n_round": self.n_round
+             , "n_epc_ec_z": self.n_epc_ec_z
+             , "n_epc_ec_c": self.n_epc_ec_c
+             , "n_epc_dec": self.n_epc_dec
+             , "model_state_dict": self.model.state_dict()}
+        torch.save(f, pth_to_file)
+
+    def load_model(self, model_name):
+        pth_to_file = os.path.join(self.path_to_snapshots, model_name)
+        f = torch.load(pth_to_file)
+        self.n_round = f["n_round"]
+        self.n_epc_ec_z = f["n_epc_ec_z"]
+        self.n_epc_ec_c = f["n_epc_ec_c"]
+        self.n_epc_dec = f["n_epc_dec"]
+        self.model.load_state_dict(f["model_state_dict"])

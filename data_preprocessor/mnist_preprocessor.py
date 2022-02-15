@@ -170,7 +170,7 @@ def distribute_allocated_data(client_root, dataset_name
 if __name__ == '__main__':
     import shutil
     import matplotlib.pyplot as plt
-    client_pth = "./clients/clients_balance_y_10_2"
+    client_pth = "./clients/clients_balance_y_10"
     alpha = 10000
     n_clients = 20
     dataset = ImageDatasetName.MNIST

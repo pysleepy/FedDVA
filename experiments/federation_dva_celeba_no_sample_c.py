@@ -7,9 +7,9 @@ import torch
 from torch.functional import F
 
 from fed_server import aggregate
-from fed_client_dva_celeba import FedClient
+from fed_client_dva_celeba_no_sample_c import FedClient
 
-from utils.focal_loss import FocalLoss
+from data_preprocessor.FocalLoss import FocalLoss
 
 
 class args:
@@ -34,8 +34,7 @@ class args:
     batch = 256
     lr = 0.001
     n_rounds = 1
-    epoch_encoder_z = 1
-    epoch_encoder_c = 1
+    epoch_encoder= 1
     epoch_decoder = 1
     n_resamples = 1
 
@@ -83,8 +82,7 @@ for r in range(args.n_rounds):
     print("round: " + str(r))
     for client_id, (tr_loader, ts_loader, n_sample, client_model) in enumerate(
             zip(tr_loaders, ts_loaders, n_tr_samples, client_models)):
-        client_model.fit(args.device, r, tr_loader, args.epoch_encoder_z, args.epoch_encoder_c, args.epoch_decoder
-                         , args.lr, args.n_resamples)
+        client_model.fit(args.device, r, tr_loader, args.epoch_encoder, args.epoch_decoder, args.lr, args.n_resamples)
     for para in global_model.model.parameters():
         para.data = torch.zeros_like(para.data)
     global_model = aggregate(global_model, client_models, n_tr_samples)
@@ -95,8 +93,7 @@ for r in range(1):
     print("round: " + str(r))
     for client_id, (tr_loader, ts_loader, n_sample, client_model) in enumerate(
             zip(tr_loaders, ts_loaders, n_tr_samples, client_models)):
-        client_model.fit(args.device, r, tr_loader, 0, args.epoch_encoder_z, args.epoch_encoder_c
-                         , args.lr, args.n_resamples)
+        client_model.fit(args.device, r, tr_loader, 0, args.epoch_encoder, args.lr, args.n_resamples)
 
 tl = ts_loaders[0]
 md = client_models[0]

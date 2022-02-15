@@ -1,6 +1,6 @@
 import torch
 import torchvision.transforms as transforms
-from utils import data_utils
+from data_preprocessor import data_utils
 
 
 def prepare_digits(args):

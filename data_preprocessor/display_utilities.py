@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib import colors, colorbar
 import colorsys
+import torch
 
 
 def get_cmap(n, name='hsv'):

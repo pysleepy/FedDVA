@@ -3,7 +3,7 @@ import torch
 from torch.functional import F
 import logging
 
-from models.DualEncoders import DualEncoder, loss_dkl, loss_reg_c
+from models.DualEncoderMNIST import DualEncoder, loss_dkl, loss_reg_c
 
 
 class FedClient:
