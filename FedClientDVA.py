@@ -34,9 +34,11 @@ class FedClient:
                 tmp_n += 1
                 log_name = tmp_log_name + "_{:d}".format(tmp_n)
             self.logger = logging.getLogger('federation.client:{:d}'.format(self.client_id))
-            # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            formatter = logging.Formatter('%(message)s')
+            # create file handler which logs even info messages
             fh = logging.FileHandler(os.path.join(self.path_to_logs, log_name))
+            # create formatter and add it to the handlers
+            formatter = logging.Formatter('%(message)s')
+            # add the handlers to the logger
             fh.setLevel(logging.INFO)
             fh.setFormatter(formatter)
             self.logger.addHandler(fh)
@@ -242,17 +244,18 @@ class FedClient:
             epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
             epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
 
-            self.logger.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec)))
-            self.logger.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
-            self.logger.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
-            self.logger.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
-            return x, x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c
+            self.logger.info('Evaluate Decoder Loss: ' + str(np.mean(epoch_dec)))
+            self.logger.info('Evaluate DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
+            self.logger.info('Evaluate DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
+            self.logger.info('Evaluate Constr c Loss : ' + str(np.mean(epoch_constr_c)))
+            return x, x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def upload_model(self):
         self.logger.info("upload local model")
         return self.shared_list, self.model
 
     def save_model(self, model_name):
+        self.logger.info("save models: " + model_name)
         pth_to_file = os.path.join(self.path_to_snapshots, model_name)
         f = {"n_round": self.n_round
              , "n_epc_ec_z": self.n_epc_ec_z
@@ -262,6 +265,7 @@ class FedClient:
         torch.save(f, pth_to_file)
 
     def load_model(self, model_name):
+        self.logger.info("load models: " + model_name)
         pth_to_file = os.path.join(self.path_to_snapshots, model_name)
         f = torch.load(pth_to_file)
         self.n_round = f["n_round"]

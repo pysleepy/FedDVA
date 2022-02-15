@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch.functional import F
 
-from fed_server import aggregate
+from FedServer import aggregate
 from fed_client_dva_with_vq import FedClient
 
 from data_preprocessor.FocalLoss import FocalLoss
