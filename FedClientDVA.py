@@ -10,7 +10,7 @@ from models.funcs import loss_dkl, loss_reg_c
 
 class FedClient:
     def __init__(self, client_id, shared_list, optimizer_func, criterion
-                 , client_root, dual_encoder_model
+                 , client_root, model_name, dual_encoder_model
                  , xi, lbd_dec, lbd_z, lbd_c, lbd_cc):
         self.client_id = int(client_id)
         self.shared_list = shared_list
@@ -18,6 +18,7 @@ class FedClient:
         self.criterion_dec = criterion
 
         self.client_root = client_root
+        self.model_name = model_name
         self.model = dual_encoder_model
 
         self.path_to_snapshots = os.path.join(self.client_root, str(self.client_id), "snapshots")
@@ -28,14 +29,14 @@ class FedClient:
             os.makedirs(self.path_to_logs)
         if self.client_id != -1:
             tmp_n = 0
-            tmp_log_name = datetime.datetime.today().strftime("log_%Y_%m_%d")
-            log_name = tmp_log_name + "_{:d}".format(tmp_n)
-            while os.path.exists(os.path.join(self.path_to_logs, log_name)):
+            tmp_log_name = self.model_name + "_" + datetime.datetime.today().strftime("log_%Y_%m_%d")
+            self.log_name = tmp_log_name + "_{:d}".format(tmp_n)
+            while os.path.exists(os.path.join(self.path_to_logs, self.log_name)):
                 tmp_n += 1
                 log_name = tmp_log_name + "_{:d}".format(tmp_n)
             self.logger = logging.getLogger('federation.client:{:d}'.format(self.client_id))
             # create file handler which logs even info messages
-            fh = logging.FileHandler(os.path.join(self.path_to_logs, log_name))
+            fh = logging.FileHandler(os.path.join(self.path_to_logs, self.log_name))
             # create formatter and add it to the handlers
             formatter = logging.Formatter('%(message)s')
             # add the handlers to the logger
@@ -44,7 +45,8 @@ class FedClient:
             self.logger.addHandler(fh)
             self.logger.info(datetime.datetime.today().strftime("client: {:d} log %Y_%m_%d").format(self.client_id))
             self.logger.info('Initialize client')
-            self.logger.info("model: " + str(self.model.MODEL_NAME))
+            self.logger.info("model name: " + str(self.model_name))
+            self.logger.info("model type: " + str(self.model.MODEL_TYPE))
             self.logger.info("d_latent_z: {:d}, d_latent_c: {:d}".format(self.model.d_z, self.model.d_c))
 
         self.xi = xi

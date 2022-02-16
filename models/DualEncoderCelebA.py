@@ -84,7 +84,7 @@ class DecoderCelebA(Decoder):
 
 
 class DualEncoderCelebA(DualEncoder):
-    MODEL_NAME = "DualEncoderCelebA"
+    MODEL_TYPE = "DualEncoderCelebA"
 
     def __init__(self, d_z, d_c):
         super(DualEncoderCelebA, self).__init__()

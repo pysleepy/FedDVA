@@ -84,7 +84,7 @@ class DecoderMNIST(Decoder):
 
 
 class DualEncoderMNIST(DualEncoder):
-    MODEL_NAME = "DualEncoderMNIST"
+    MODEL_TYPE = "DualEncoderMNIST"
 
     def __init__(self, d_z, d_c):
         super(DualEncoderMNIST, self).__init__()
