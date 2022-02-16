@@ -33,7 +33,7 @@ class FedClient:
             self.log_name = tmp_log_name + "_{:d}".format(tmp_n)
             while os.path.exists(os.path.join(self.path_to_logs, self.log_name)):
                 tmp_n += 1
-                log_name = tmp_log_name + "_{:d}".format(tmp_n)
+                self.log_name = tmp_log_name + "_{:d}".format(tmp_n)
             self.logger = logging.getLogger('federation.client:{:d}'.format(self.client_id))
             # create file handler which logs even info messages
             fh = logging.FileHandler(os.path.join(self.path_to_logs, self.log_name))
