@@ -50,10 +50,11 @@ def parse_logs(client_root, c_id, log_name, loss_types):
                 line = line.split("Epoch")[1].strip()
                 k, v = line.split("Loss")
                 k, v = k.strip(), float(v.strip().strip(":").strip())
-                tmp_loss[k].append(v)
-                if len(tmp_loss[k]) % epc_per_round == 0:
-                    loss[k].append(np.mean(tmp_loss[k]))
-                    tmp_loss[k] = []
+                if k in loss_types:
+                    tmp_loss[k].append(v)
+                    if len(tmp_loss[k]) % epc_per_round == 0:
+                        loss[k].append(np.mean(tmp_loss[k]))
+                        tmp_loss[k] = []
 
         plt.figure()
         plt.title(log_name + " " + "Client: {:d}".format(c_id))
