@@ -30,11 +30,12 @@ def generate_coordinates(n_row, n_col, min_z, max_z, min_c, max_c):
     return z, c, z_labels, c_labels
 
 
-def parse_logs(client_root, c_id, log_name):
+loss_types = ["Decoder", "Decoder_z", "DKL z", "Decoder_c", "DKL c", "Constr c"]
+
+
+def parse_logs(client_root, c_id, log_name, loss_types):
     path_to_log = os.path.join(client_root, str(c_id), "logs", log_name)
     epc_per_round = 5
-    loss_types = ["Decoder", "Decoder_z", "DKL z", "Decoder_c", "DKL c", "Constr c"]
-
     loss = dict()
     tmp_loss = dict()
 
@@ -56,9 +57,8 @@ def parse_logs(client_root, c_id, log_name):
 
         plt.figure()
         plt.title(log_name + " " + "Client: {:d}".format(c_id))
-        l1, = plt.plot(loss["Decoder"], label='loss_dec')
-        l2, = plt.plot(loss["Decoder_z"], label='loss_z')
-        l3, = plt.plot(loss["Decoder_c"], label='loss_c')
+        for k in loss_types:
+            plt.plot(loss[k], label=k)
         # plt.legend(handles=[l1, l2], labels=['dec_c', 'dec_z'], loc='best')
 
         plt.legend()
