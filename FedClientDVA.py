@@ -179,8 +179,12 @@ class FedClient:
                 epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
                 epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
 
-                loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c \
-                    + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
+                # loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c \
+                #     + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
+
+                loss = self.lbd_dec * loss_dec_c \
+                    + torch.max(self.lbd_c * loss_dkl_c, self.lbd_cc * (self.xi + loss_constr_c))
+
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
                 optimizer_embedding_z.step()
