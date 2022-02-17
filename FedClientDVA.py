@@ -179,13 +179,8 @@ class FedClient:
                 epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
                 epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
 
-                # loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c \
-                #     + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
-
-                # loss = self.lbd_dec * loss_dec_c \
-                #   + torch.max(self.lbd_c * loss_dkl_c, self.lbd_cc * (self.xi + loss_constr_c))
-
-                loss = self.lbd_dec * loss_dec_c + self.lbd_cc * F.relu(loss_constr_c - self.xi)
+                loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c \
+                    + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
 
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
@@ -262,22 +257,41 @@ class FedClient:
         self.logger.info("upload local model")
         return self.shared_list, self.model
 
-    def save_model(self, model_name):
-        self.logger.info("save models: " + model_name)
-        pth_to_file = os.path.join(self.path_to_snapshots, model_name)
-        f = {"n_round": self.n_round
+    def save_model(self, file_name):
+        self.logger.info("save models: " + file_name)
+        pth_to_file = os.path.join(self.path_to_snapshots, file_name)
+        f = {"model_name": self.model_name
+             , "log_name": self.log_name
+             , "n_round": self.n_round
              , "n_epc_ec_z": self.n_epc_ec_z
              , "n_epc_ec_c": self.n_epc_ec_c
              , "n_epc_dec": self.n_epc_dec
              , "model_state_dict": self.model.state_dict()}
         torch.save(f, pth_to_file)
 
-    def load_model(self, model_name):
-        self.logger.info("load models: " + model_name)
-        pth_to_file = os.path.join(self.path_to_snapshots, model_name)
+    def load_model(self, file_name):
+        self.logger.info("load models: " + file_name)
+        pth_to_file = os.path.join(self.path_to_snapshots, file_name)
         f = torch.load(pth_to_file)
+        self.model_name = f["model_name"]
+        self.log_name = f["log_name"]
         self.n_round = f["n_round"]
         self.n_epc_ec_z = f["n_epc_ec_z"]
         self.n_epc_ec_c = f["n_epc_ec_c"]
         self.n_epc_dec = f["n_epc_dec"]
         self.model.load_state_dict(f["model_state_dict"])
+
+        self.logger = logging.getLogger('federation.client:{:d}'.format(self.client_id))
+        # create file handler which logs even info messages
+        fh = logging.FileHandler(os.path.join(self.path_to_logs, self.log_name))
+        # create formatter and add it to the handlers
+        formatter = logging.Formatter('%(message)s')
+        # add the handlers to the logger
+        fh.setLevel(logging.INFO)
+        fh.setFormatter(formatter)
+        self.logger.addHandler(fh)
+        self.logger.info(datetime.datetime.today().strftime("client: {:d} log %Y_%m_%d").format(self.client_id))
+        self.logger.info('Load client')
+        self.logger.info("model name: " + str(self.model_name))
+        self.logger.info("model type: " + str(self.model.MODEL_TYPE))
+        self.logger.info("d_latent_z: {:d}, d_latent_c: {:d}".format(self.model.d_z, self.model.d_c))
