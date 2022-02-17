@@ -180,7 +180,7 @@ class FedClient:
                 epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
 
                 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c \
-                    + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
+                    + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c.detach())
 
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
