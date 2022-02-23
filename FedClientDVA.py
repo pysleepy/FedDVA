@@ -172,7 +172,8 @@ class FedClient:
                 loss_dec_c = self.criterion_dec(x_hat, x)
                 mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
                 log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
-                loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)
+                # 2022-02-23 loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)
+                loss_dkl_c = loss_dkl(mu_c_prior, log_var_c_prior, mu_c, log_var_c)
                 loss_constr_c = loss_reg_c(mu_c, log_var_c)
 
                 epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
