@@ -176,7 +176,7 @@ class FedClient:
                 # 2022-02-24 loss_dkl_c = loss_dkl(mu_c_prior, log_var_c_prior, mu_c, log_var_c)
                 # 2022-02-24 loss_constr_c = loss_reg_c(mu_c, log_var_c)
                 loss_dkl_c = loss_reg_c(mu_c, log_var_c)
-                loss_constr_c = loss_dkl_c(mu_c_prior, log_var_c_prior, mu_c, log_var_c)
+                loss_constr_c = loss_dkl(mu_c_prior, log_var_c_prior, mu_c, log_var_c)
 
                 epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
                 epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
