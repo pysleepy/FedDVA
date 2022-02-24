@@ -167,10 +167,6 @@ class FedClient:
                 optimizer_decoder.zero_grad()
 
                 x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
-                print("mu")
-                print(mu_c)
-                print("logvar")
-                print(log_var_c)
 
                 # rec loss
                 loss_dec_c = self.criterion_dec(x_hat, x)
