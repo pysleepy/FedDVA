@@ -173,15 +173,18 @@ class FedClient:
                 mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
                 log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
                 # 2022-02-23 loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)
-                loss_dkl_c = loss_dkl(mu_c_prior, log_var_c_prior, mu_c, log_var_c)
-                loss_constr_c = loss_reg_c(mu_c, log_var_c)
+                # 2022-02-24 loss_dkl_c = loss_dkl(mu_c_prior, log_var_c_prior, mu_c, log_var_c)
+                # 2022-02-24 loss_constr_c = loss_reg_c(mu_c, log_var_c)
+                loss_dkl_c = loss_reg_c(mu_c, log_var_c)
+                loss_constr_c = loss_dkl_c(mu_c_prior, log_var_c_prior, mu_c, log_var_c)
 
                 epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
                 epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
                 epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
 
                 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c \
-                    + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
+                    + self.lbd_cc * loss_constr_c
+                    # + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
 
                 loss = torch.mean(loss, dim=0)
                 loss.backward()

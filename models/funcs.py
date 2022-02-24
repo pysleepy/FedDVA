@@ -33,11 +33,11 @@ def loss_reg_c(mu_c, log_var_c):
     var_c = log_var_c.exp()
     var_c_expand = var_c.expand(n_sample, n_sample, d_sample)
 
-    term_1 = (mu_c_expand.permute(1, 0, 2) - mu_c_expand) ** 2 / var_c_expand
+    term_1 = (mu_c_expand.permute(1, 0, 2) - mu_c_expand.detach()) ** 2 / var_c_expand.detach()
 
-    term_2 = - (log_var_c_expand.permute(1, 0, 2) - log_var_c_expand)
+    term_2 = - (log_var_c_expand.permute(1, 0, 2) - log_var_c_expand.detach())
 
-    term_3 = var_c_expand.permute(1, 0, 2) / var_c_expand
+    term_3 = var_c_expand.permute(1, 0, 2) / var_c_expand.detach()
 
     loss = term_1 + term_2 + term_3 - 1
 
