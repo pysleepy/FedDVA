@@ -171,7 +171,7 @@ class FedClient:
                 # rec loss
                 loss_dec_c = self.criterion_dec(x_hat, x)
                 mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
-                mu_c_prior_prime = torch.ones_like(mu_c) * (torch.mean(mu_c, dim=0).detach())  # tmp
+                mu_c_prior_prime = (torch.ones_like(mu_c) * torch.mean(mu_c, dim=0)).detach()  # tmp
                 log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
 
                 # tmp
