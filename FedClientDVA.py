@@ -5,7 +5,7 @@ import logging
 import numpy as np
 import torch
 from torch.functional import F
-from models.funcs import loss_dkl, loss_reg_c
+from models.funcs import loss_dkl, loss_reg_c, loss_reg_c_2
 
 
 class FedClient:
@@ -177,7 +177,7 @@ class FedClient:
                 loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)  # N(0, 1)
 
                 loss_constr_c = loss_reg_c(mu_c, log_var_c)
-                loss_constr_c_2 = loss_reg_c(mu_c, log_var_c)
+                loss_constr_c_2 = loss_reg_c_2(mu_c, log_var_c)
 
                 epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
                 epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
