@@ -33,11 +33,35 @@ def loss_reg_c(mu_c, log_var_c):
     var_c = log_var_c.exp()
     var_c_expand = var_c.expand(n_sample, n_sample, d_sample)
 
-    term_1 = (mu_c_expand.permute(1, 0, 2) - mu_c_expand) ** 2 / var_c_expand
+    term_1 = (mu_c_expand.permute(1, 0, 2) - mu_c_expand.detach()) ** 2 / var_c_expand.detach()
 
-    term_2 = - (log_var_c_expand.permute(1, 0, 2) - log_var_c_expand)
+    term_2 = - (log_var_c_expand.permute(1, 0, 2) - log_var_c_expand.detach())
 
-    term_3 = var_c_expand.permute(1, 0, 2) / var_c_expand
+    term_3 = var_c_expand.permute(1, 0, 2) / var_c_expand.detach()
+
+    loss = term_1 + term_2 + term_3 - 1
+
+    loss = torch.mean(0.5 * (torch.sum(loss, dim=2)), dim=1)
+
+    return loss
+
+
+def loss_reg_c_2(mu_c, log_var_c):
+    # Equation (26)
+    n_sample = mu_c.shape[0]
+    d_sample = mu_c.shape[1]
+
+    # Descartes operations through increasing tensor dimension rather 'for' loop
+    mu_c_expand = mu_c.expand(n_sample, n_sample, d_sample)
+    log_var_c_expand = log_var_c.expand(n_sample, n_sample, d_sample)
+    var_c = log_var_c.exp()
+    var_c_expand = var_c.expand(n_sample, n_sample, d_sample)
+
+    term_1 = (mu_c_expand.permute(1, 0, 2).detach() - mu_c_expand) ** 2 / var_c_expand
+
+    term_2 = - (log_var_c_expand.permute(1, 0, 2).detach() - log_var_c_expand)
+
+    term_3 = var_c_expand.permute(1, 0, 2).detach() / var_c_expand
 
     loss = term_1 + term_2 + term_3 - 1
 
