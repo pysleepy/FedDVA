@@ -77,7 +77,7 @@ def generate_triangle_marks(idx, image_size, padding=1, degree=0.5, bias=1, reso
     degree = np.random.uniform()
     bias = np.random.randint(0, 1000)
 
-    n_col, n_row, n_ch = image_size
+    n_ch, n_col, n_row = image_size
 
     x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
     x_min, y_min = 0 + padding, 0 + padding
@@ -125,7 +125,7 @@ def generate_sin_marks(idx, image_size, padding=1, period=1, A=1., bias=1/3, ver
     :return: image of the marks
     """
     bias = np.random.uniform()
-    n_col, n_row, n_ch = image_size
+    n_ch, n_col, n_row = image_size
     x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
     x_span = x_max - padding
     y_span = y_max - padding
@@ -155,7 +155,7 @@ def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25, re
     :return: image with marks, image of the marks
     """
     rot_angle = np.random.uniform()
-    n_col, n_row, n_ch = image_size
+    n_ch, n_col, n_row = image_size
     x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
 
     x_span = x_max - padding
