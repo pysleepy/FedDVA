@@ -95,6 +95,6 @@ for c_id in range(5):
     idx = np.random.randint(0, 1000)
     plt.figure("client: {:d}".format(c_id))
     img, label = client_tr_sets[c_id].data[idx], client_tr_sets[c_id].labels[idx]
-    plt.imshow(img.squeeze(3).numpy())
+    plt.imshow(img.squeeze(2).numpy())
     plt.title("client {:d}:, class label: {:d}".format(c_id, label.item()))
     plt.show()
