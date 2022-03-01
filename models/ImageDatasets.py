@@ -150,8 +150,10 @@ class MNISTGenerator:
             tr_marks, ts_marks = self.__generate_marks__()
             self.client_tr_data += tr_marks
             self.client_ts_data += ts_marks
-            self.client_tr_data.clamp_max_(255).detach_()
-            self.client_ts_data.clamp_max_(255).detach_()
+            self.client_tr_data.clamp_max_(255)
+            self.client_ts_data.clamp_max_(255)
+            self.client_tr_data = self.client_tr_data.float() / 255.
+            self.client_ts_data = self.client_ts_data.float() / 255.
 
         if heter_y:
             logger.info("offeset labels")
