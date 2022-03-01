@@ -114,9 +114,12 @@ def generate_triangle_marks(idx, image_size, padding=1, degree=0.5, bias=1, reso
     return idx, cor
 
 
-def generate_sin_marks(idx, image_size, padding=1, period=1, A=1., bias=1/3, vertical=False, resolution=0.05):
+def generate_sin_marks(idx, image_size, padding=1
+                       , A=None, phase=None, period=None
+                       , vertical=False, resolution=0.05):
     """
     draw sin marks
+    A=1., phrase=1/3, period=1., bias=14.
     :param image_size
     :param padding: the padding of x and y
     :param period: how many periods of the sin
@@ -124,13 +127,19 @@ def generate_sin_marks(idx, image_size, padding=1, period=1, A=1., bias=1/3, ver
     :param vertical:
     :return: image of the marks
     """
-    bias = np.random.uniform()
+    if A is None:
+        A = np.random.uniform(0.3, 1.)
+    if phase is None:
+        phase = np.random.uniform()
+    if period is None:
+        period = np.random.uniform()
+
     n_ch, n_col, n_row = image_size
     x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
     x_span = x_max - padding
     y_span = y_max - padding
 
-    x_period = np.arange(0, 2 * np.pi*period, resolution) + 2 * np.pi * bias
+    x_period = np.arange(0, 2 * np.pi*period, resolution) + 2 * np.pi * phase
     x_len = len(x_period)
 
     x = np.arange(padding, x_max, x_span/x_len)

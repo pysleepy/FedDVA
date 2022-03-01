@@ -123,13 +123,16 @@ class MNISTGenerator:
 
         if m_type == 1:
             g_mark = partial(generate_sin_marks
-                             , image_size=self.image_size, A=0.3, period=2)
+                             , image_size=self.image_size
+                             , A=None, phase=1./3., period=1.)
         elif m_type == 2:
             g_mark = partial(generate_sin_marks
-                             , image_size=self.image_size, )
+                             , image_size=self.image_size
+                             , A=1., phase=None, period=1.)
         elif m_type == 3:
             g_mark = partial(generate_sin_marks
-                             , image_size=self.image_size, vertical=True)
+                             , image_size=self.image_size
+                             , A=1., phase=None, period=1., vertical=True)
         elif m_type == 4:
             g_mark = partial(generate_ellipse_marks
                              , image_size=self.image_size, )
