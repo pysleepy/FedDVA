@@ -30,8 +30,8 @@ client_root = os.path.join(base_path, "./clients/mnist_balanced_y_hetero_x")
 logger.info("loading dataset: MNIST")
 tr_set = datasets.MNIST(data_root, train=True, download=True)
 ts_set = datasets.MNIST(data_root, train=False, download=True)
-tr_data, tr_label = tr_set.data.unsqueeze(3).permute([0, 3, 1, 2]), tr_set.targets  # N x H x W x C -> N x C x H x W, N
-ts_data, ts_label = ts_set.data.unsqueeze(3).permute([0, 3, 1, 2]), ts_set.targets  # N x H x W x C -> N x C x H x W, N
+tr_data, tr_label = tr_set.data.unsqueeze(3), tr_set.targets  # N x H x W x C, N
+ts_data, ts_label = ts_set.data.unsqueeze(3), ts_set.targets  # N x H x W x C, N
 
 logger.info("allocate samples")
 client_idx_tr_samples, client_idx_ts_samples = allocate_supervised_data(alpha, n_total_clients, tr_label, ts_label)
@@ -95,6 +95,6 @@ for c_id in range(5):
     idx = np.random.randint(0, 1000)
     plt.figure("client: {:d}".format(c_id))
     img, label = client_tr_sets[c_id].data[idx], client_tr_sets[c_id].labels[idx]
-    plt.imshow(img.squeeze(0).numpy())
+    plt.imshow(img.squeeze(3).numpy())
     plt.title("client {:d}:, class label: {:d}".format(c_id, label.item()))
     plt.show()

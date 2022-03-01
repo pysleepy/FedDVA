@@ -105,8 +105,8 @@ class MNISTGenerator:
         logger.info("n_ts: {:d}".format(self.n_ts))
         logger.info("n_classes: {:d}".format(self.n_classes))
 
-        tr_mean = (client_tr_data.float() / 255.).mean(dim=[0, 2, 3])
-        tr_std = (client_tr_data.float() / 255.).std(dim=[0, 2, 3])
+        tr_mean = (client_tr_data.float() / 255.).mean(dim=[0, 1, 2])
+        tr_std = (client_tr_data.float() / 255.).std(dim=[0, 1, 2])
         self.tr_mean = tuple(tr_mean.tolist())
         self.tr_std = tuple(tr_std.tolist())
         self.image_size = self.client_tr_data[0].shape
@@ -137,9 +137,9 @@ class MNISTGenerator:
             return tr_marks, ts_marks
 
         for idx, coords in map(g_mark, range(self.n_tr)):
-            tr_marks[idx, :, coords[:, 0], coords[:, 1]] = 255
+            tr_marks[idx, coords[:, 0], coords[:, 1], :] = 255
         for idx, coords in map(g_mark, range(self.n_ts)):
-            ts_marks[idx, :, coords[:, 0], coords[:, 1]] = 255
+            ts_marks[idx, coords[:, 0], coords[:, 1], :] = 255
 
         return tr_marks, ts_marks
 
