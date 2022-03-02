@@ -10,8 +10,7 @@ import logging
 
 from functools import partial
 
-from data_preprocessor.allocate_utilities import generate_triangle_marks, generate_ellipse_marks\
-    , generate_sin_marks, generate_line_marks
+from data_preprocessor.allocate_utilities import generate_ellipse_marks, generate_sin_marks, generate_line_marks
 
 
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -65,34 +64,37 @@ class FedDataset(Dataset):
         self.is_training = is_training
 
     def __getitem__(self, index):
-        label = self.labels[index]
         img = self.data[index]
         img = self.transformer(img.float())
-        return img, label
+        if self.labels is None:
+            return img
+        else:
+            label = self.labels[index]
+            return img, label
 
     def __len__(self):
         return self.data.shape[0]
 
 
 class MNISTGenerator:
-    def __init__(self, client_id, dataset
+    def __init__(self, client_id, dataset_name
                  , client_tr_data, client_tr_labels
                  , client_ts_data, client_ts_labels):
         """
 
         :param client_id:
-        :param dataset: dataset name. enumerator DatasetName
-        :param client_tr_data: a tensor of tr samples [n_sample * h * w * channel]
-        :param client_tr_labels: a tensor of tr labels [n_sample]
-        :param client_ts_data: a tensor of ts samples [n_sample * h * w * channel]
-        :param client_ts_labels: a tensor of ts labels [n_sample]
+        :param dataset_name: dataset name. enumerator DatasetName
+        :param client_tr_data: a tensor of tr samples [N x C x H x W]
+        :param client_tr_labels: a tensor of tr labels [N]
+        :param client_ts_data: a tensor of ts samples [N x C x H x W]
+        :param client_ts_labels: a tensor of ts labels [N]
         """
 
         self.client_id = client_id
         logger.info("distribute data to client: {:d}".format(self.client_id))
 
-        self.dataset = dataset
-        logger.info("dataset: " + self.dataset.value)
+        self.dataset_name = dataset_name
+        logger.info("dataset: " + self.dataset_name.value)
 
         self.client_tr_data = client_tr_data
         self.client_tr_labels = client_tr_labels
@@ -122,14 +124,13 @@ class MNISTGenerator:
         tr_marks = torch.zeros_like(self.client_tr_data)
         ts_marks = torch.zeros_like(self.client_ts_data)
 
-        if m_type == 0:
+        # if m_type == 0:
+        #     g_mark = partial(generate_line_marks
+        #                      , image_size=self.image_size
+        #                      , rate=0.25)
+        if m_type == 1:
             g_mark = partial(generate_line_marks
-                             , image_size=self.image_size
-                             , rate=0.25)
-        elif m_type == 1:
-            g_mark = partial(generate_line_marks
-                             , image_size=self.image_size
-                             , bias_rate=(0.5, 0.5))
+                             , image_size=self.image_size)
         elif m_type == 2:
             g_mark = partial(generate_sin_marks
                              , image_size=self.image_size
@@ -169,101 +170,92 @@ class MNISTGenerator:
             self.client_tr_labels = (self.client_tr_labels + label_offset) % self.n_classes
             self.client_ts_labels = (self.client_ts_labels + label_offset) % self.n_classes
 
-        tr_set = FedDataset(self.client_id, self.dataset
+        tr_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_tr_data, self.client_tr_labels
                             , self.image_size, self.tr_mean, self.tr_std
                             , transformer, True)
-        ts_set = FedDataset(self.client_id, self.dataset
+        ts_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_ts_data, self.client_ts_labels
                             , self.image_size, self.tr_mean, self.tr_std
                             , transformer, False)
         return tr_set, ts_set
 
 
-class ClientDatasetCelebA:
-    def __init__(self, client_id, dataset, root_dataset
-                 , client_tr_idx, client_ts_idx, image_size):
+class CelebAGenerator:
+    def __init__(self, client_id, dataset_name, path_to_data
+                 , client_tr_list, client_ts_list
+                 , resize):
         """
 
         :param client_id:
-        :param dataset: dataset name. enumerator DatasetName
-        :param root_dataset: root of the dataset
-        :param client_tr_idx: a list of tr samples index: [sample index of the client]
-        :param client_ts_idx: a list of ts samples index: [sample index of the client]
-        # :param client_tr_data: a tensor of tr samples [n_sample * h * w * channel]
-        # :param client_ts_data: a tensor of ts samples [n_sample * h * w * channel]
+        :param dataset_name: dataset name. enumerator DatasetName
+        :param path_to_data: path to the directory of image data
+        :param client_tr_list: a list of ts samples index: [sample index of the client]
+        :param client_ts_list: a list of ts samples index: [sample index of the client]
+        :param resize: resize the image
         """
 
         self.client_id = client_id
-        logging.info("distribute data to client: {:d}".format(self.client_id))
+        logger.info("distribute data to client: {:d}".format(self.client_id))
 
-        self.dataset = dataset
-        logging.info("dataset: " + self.dataset.value)
+        self.dataset_name = dataset_name
+        logger.info("dataset: " + self.dataset_name.value)
 
-        self.root_dataset = root_dataset
-        logging.info("dataset: " + self.root_dataset)
+        self.path_to_data = path_to_data
+        logger.info("directory of image data: " + self.path_to_data)
 
-        self.client_tr_idx = client_tr_idx
-        self.client_ts_idx = client_ts_idx
-
-        self.image_size = image_size
-
-        self.n_tr = len(self.client_tr_idx)
-        self.n_ts = len(self.client_ts_idx)
-        self.n_samples = self.n_tr + self.n_ts
-
-        self.transformer = transforms.Compose([transforms.Resize(self.image_size)
-                                              , transforms.CenterCrop(self.image_size)
-                                              , transforms.ToTensor()
-                                              , transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        logger.info("loading data")
+        self.client_tr_list = client_tr_list
+        self.client_ts_list = client_ts_list
 
         self.client_tr_data = []
         self.client_ts_data = []
 
-        for img_idx in self.client_tr_idx:
-            img = self.transformer(Image.open(os.path.join(root_dataset, img_idx))).unsqueeze(0)
+        self.resize = resize
+        transformer = transforms.Compose([transforms.Resize(self.resize)
+                                          , transforms.CenterCrop(self.resize)
+                                          , transforms.ToTensor()])
+
+        for img_idx in self.client_tr_list:
+            img = transformer(Image.open(os.path.join(self.path_to_data, img_idx))).unsqueeze(0)
             self.client_tr_data.append(img)
 
-        for img_idx in self.client_ts_idx:
-            img = self.transformer(Image.open(os.path.join(root_dataset, img_idx))).unsqueeze(0)
+        for img_idx in self.client_ts_list:
+            img = transformer(Image.open(os.path.join(self.path_to_data, img_idx))).unsqueeze(0)
             self.client_ts_data.append(img)
 
-        self.client_tr_data= torch.cat(self.client_tr_data, dim=0)
+        self.client_tr_data = torch.cat(self.client_tr_data, dim=0)
         self.client_ts_data = torch.cat(self.client_ts_data, dim=0)
 
-    def get_fed_dataset(self, is_training):
-        if is_training:
-            return FedDatasetCelebA(self.client_id, self.dataset
-                              , self.client_tr_data, self.image_size, is_training)
-        else:
-            return FedDatasetCelebA(self.client_id, self.dataset
-                              , self.client_ts_data, self.image_size, is_training)
+        self.n_tr = self.client_tr_data.shape[0]
+        self.n_ts = self.client_ts_data.shape[0]
+        logger.info("n_tr: {:d}".format(self.n_tr))
+        logger.info("n_ts: {:d}".format(self.n_ts))
 
+        tr_mean = self.client_tr_data.mean(dim=[0, 2, 3])
+        tr_std = self.client_tr_data.std(dim=[0, 2, 3])
+        self.tr_mean = tuple(tr_mean.tolist())
+        self.tr_std = tuple(tr_std.tolist())
+        self.image_size = self.client_tr_data[0].shape
 
-class FedDatasetCelebA(Dataset):
-    def __init__(self, c_id, dataset, tensor_data, img_size, is_training):
-        """
+        logger.info("tr_mean: " + str(self.tr_mean))
+        logger.info("tr_std: " + str(self.tr_std))
+        logger.info("image size: ({:d} * {:d} * {:d})".format(
+            self.image_size[0], self.image_size[1], self.image_size[2]))
 
-        :param c_id:
-        :param dataset: dataset name. enumerator DatasetName
-        :param tensor_data: a tensor of samples [n_sample * h * w * channel]
-        :param img_size: (h * w *c)
-        :param is_training: is training set
-        """
+    def get_fed_dataset(self):
+        transformer = transforms.Compose([transforms.Normalize(self.tr_mean, self.tr_std)])
 
-        self.c_id = c_id
-        self.dataset = dataset
-        self.is_training = is_training
+        tr_set = FedDataset(self.client_id, self.dataset_name
+                            , self.client_tr_data, None
+                            , self.image_size, self.tr_mean, self.tr_std
+                            , transformer, True)
+        ts_set = FedDataset(self.client_id, self.dataset_name
+                            , self.client_tr_data, None
+                            , self.image_size, self.tr_mean, self.tr_std
+                            , transformer, False)
+        return tr_set, ts_set
 
-        self.data = tensor_data
-        self.img_size = img_size
-
-    def __getitem__(self, index):
-        img = self.data[index]
-        return img
-
-    def __len__(self):
-        return self.data.shape[0]
 
 
 class ClientDatasetDomainNet:

@@ -24,8 +24,8 @@ n_total_clients = 20
 alpha = 10000  # the larger the alpha is, the balance the label distributed on different clients
 heter_x = True
 heter_y = False
-data_root = os.path.join(base_path, "./data/Images")
-client_root = os.path.join(base_path, "./clients/mnist_balanced_y_hetero_x")
+data_root = os.path.join(base_path, "data/Images")
+client_root = os.path.join(base_path, "clients/mnist_balanced_y_hetero_x")
 
 logger.info("loading dataset: MNIST")
 tr_set = datasets.MNIST(data_root, train=True, download=True)
@@ -63,7 +63,7 @@ for client_id, (cur_client_tr, cur_client_ts) in enumerate(zip(client_idx_tr_sam
     cur_client_ts_labels = torch.cat(cur_client_ts_labels, dim=0)
 
     mnistGenerators = MNISTGenerator(client_id=client_id
-                                     , dataset=dataset_name
+                                     , dataset_name=dataset_name
                                      , client_tr_data=cur_client_tr_data
                                      , client_tr_labels=cur_client_tr_labels
                                      , client_ts_data=cur_client_ts_data
