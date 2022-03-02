@@ -73,11 +73,11 @@ def allocate_supervised_data(alpha, n_total_clients, tr_label, ts_label):
     return client_idx_tr_samples, client_idx_ts_samples
 
 
-def generate_triangle_marks(idx, image_size, padding=1, degree=0.5, bias=1, resolution=0.05):
+def generate_triangle_marks(idx, image_size, padding=1, degree=0.5, bias=1, resolution=0.1):
     degree = np.random.uniform()
     bias = np.random.randint(0, 1000)
 
-    n_ch, n_col, n_row = image_size
+    n_ch, n_row, n_col = image_size
 
     x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
     x_min, y_min = 0 + padding, 0 + padding
@@ -116,7 +116,7 @@ def generate_triangle_marks(idx, image_size, padding=1, degree=0.5, bias=1, reso
 
 def generate_sin_marks(idx, image_size, padding=1
                        , A=None, phase=None, period=None
-                       , vertical=False, resolution=0.05):
+                       , vertical=False, resolution=0.1):
     """
     draw sin marks
     A=1., phrase=1/3, period=1., bias=14.
@@ -128,13 +128,13 @@ def generate_sin_marks(idx, image_size, padding=1
     :return: image of the marks
     """
     if A is None:
-        A = np.random.uniform(0.3, 1.)
+        A = -1. * np.random.uniform(0.1, 0.9)
     if phase is None:
         phase = np.random.uniform()
     if period is None:
         period = np.random.uniform()
 
-    n_ch, n_col, n_row = image_size
+    n_ch, n_row, n_col = image_size
     x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
     x_span = x_max - padding
     y_span = y_max - padding
@@ -154,7 +154,7 @@ def generate_sin_marks(idx, image_size, padding=1
     return idx, cor
 
 
-def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25, resolution=0.05):
+def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25, resolution=0.1):
     """
     draw ellipse marks
     :param
@@ -164,7 +164,7 @@ def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25, re
     :return: image with marks, image of the marks
     """
     rot_angle = np.random.uniform()
-    n_ch, n_col, n_row = image_size
+    n_ch, n_row, n_col = image_size
     x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
 
     x_span = x_max - padding
@@ -193,5 +193,40 @@ def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25, re
 
     cor = np.zeros([len(xx), 2], int)
     cor[:, 0], cor[:, 1] = np.round(yy), np.round(xx)
+
+    return idx, cor
+
+
+def generate_line_marks(idx, image_size, padding=1
+                        , rate=None, bias_rate=None, resolution=0.1):
+    """
+    draw sin marks
+    :param image_size
+    :param padding: the padding of x and y
+    :param rate:
+    :return: image of the marks
+    """
+    if rate is None:
+        rate = np.random.uniform(0.1, 0.4)
+    rate_ver = 0.5 + rate
+
+    if bias_rate is None:
+        bias_rate = np.random.uniform(0.3, 0.7, 2)
+
+    n_ch, n_row, n_col = image_size
+    x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
+    x_min, y_min = padding, padding
+    x_center = (x_max - x_min) * bias_rate[0] + x_min
+    y_center = (y_max - y_min) * bias_rate[1] + y_min
+
+    x_span = np.arange(x_min, x_max, resolution)
+    y_span = np.array([np.tan(rate * np.pi) * (z - x_center) for z in x_span]) + y_center
+    y_ver_span = np.array([np.tan(rate_ver * np.pi) * (z - x_center) for z in x_span]) + y_center
+    # y_span, y_ver_span = y_span.clip(y_min, y_max), y_ver_span.clip(y_min, y_max)
+
+    cor = np.zeros([len(x_span) * 2, 2], int)
+    cor[:, 0], cor[:, 1] = np.round(np.concatenate([x_span, x_span])), np.round(np.concatenate([y_span, y_ver_span]))
+    cor = cor[cor[:, 1] < y_max, :]
+    cor = cor[cor[:, 1] > y_min, :]
 
     return idx, cor

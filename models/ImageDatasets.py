@@ -10,7 +10,8 @@ import logging
 
 from functools import partial
 
-from data_preprocessor.allocate_utilities import generate_triangle_marks, generate_ellipse_marks, generate_sin_marks
+from data_preprocessor.allocate_utilities import generate_triangle_marks, generate_ellipse_marks\
+    , generate_sin_marks, generate_line_marks
 
 
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -121,10 +122,14 @@ class MNISTGenerator:
         tr_marks = torch.zeros_like(self.client_tr_data)
         ts_marks = torch.zeros_like(self.client_ts_data)
 
-        if m_type == 1:
-            g_mark = partial(generate_sin_marks
+        if m_type == 0:
+            g_mark = partial(generate_line_marks
                              , image_size=self.image_size
-                             , A=None, phase=1./3., period=1.)
+                             , rate=0.25)
+        elif m_type == 1:
+            g_mark = partial(generate_line_marks
+                             , image_size=self.image_size
+                             , bias_rate=(0.5, 0.5))
         elif m_type == 2:
             g_mark = partial(generate_sin_marks
                              , image_size=self.image_size
