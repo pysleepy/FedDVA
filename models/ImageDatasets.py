@@ -65,7 +65,6 @@ class FedDataset(Dataset):
 
     def __getitem__(self, index):
         img = self.data[index]
-        print(type(img))
         img = self.transformer(img)
         if self.labels is None:
             return img
@@ -245,7 +244,7 @@ class CelebAGenerator:
             self.image_size[0], self.image_size[1], self.image_size[2]))
 
     def get_fed_dataset(self):
-        transformer = transforms.Compose([transforms.Normalize(self.tr_mean, self.tr_std)])
+        transformer = transforms.Compose([transforms.Normalize(mean=self.tr_mean, std=self.tr_std)])
 
         tr_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_tr_data, None
