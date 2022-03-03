@@ -247,7 +247,7 @@ class CelebAGenerator:
                             , self.image_size, self.tr_mean, self.tr_std
                             , True)
         ts_set = FedDataset(self.client_id, self.dataset_name
-                            , self.client_tr_data, None
+                            , self.client_ts_data, None
                             , self.image_size, self.tr_mean, self.tr_std
                             , False)
         return tr_set, ts_set
