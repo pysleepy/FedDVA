@@ -59,7 +59,7 @@ class FedDataset(Dataset):
         self.data_mean = data_mean
         self.data_std = data_std
 
-        self.transformer = transforms.Normalize(mean=self.data_mean, std=self.data_std)
+        self.transformer = transforms.Compose([transforms.Normalize(mean=self.data_mean, std=self.data_std)])
         self.is_training = is_training
 
     def __getitem__(self, index):
