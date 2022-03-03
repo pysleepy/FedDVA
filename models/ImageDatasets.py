@@ -170,11 +170,11 @@ class MNISTGenerator:
 
         tr_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_tr_data, self.client_tr_labels
-                            , self.image_size, self.tr_mean, self.tr_std
+                            , self.image_size, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
                             , True)
         ts_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_ts_data, self.client_ts_labels
-                            , self.image_size, self.tr_mean, self.tr_std
+                            , self.image_size, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
                             , False)
         return tr_set, ts_set
 
