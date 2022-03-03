@@ -66,6 +66,7 @@ class FedDataset(Dataset):
     def __getitem__(self, index):
         img = self.data[index]
         img = self.transformer(img)
+        print(type(img))
         if self.labels is None:
             return img
         else:
