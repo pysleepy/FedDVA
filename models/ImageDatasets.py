@@ -6,6 +6,7 @@ from PIL import Image
 from torchvision import transforms
 from torch.utils.data import Dataset
 import torch
+import torchvision.transforms.functional as F
 import logging
 
 from functools import partial
@@ -59,12 +60,11 @@ class FedDataset(Dataset):
         self.data_mean = data_mean
         self.data_std = data_std
 
-        self.transformer = transforms.Compose([transforms.Normalize(mean=self.data_mean, std=self.data_std)])
         self.is_training = is_training
 
     def __getitem__(self, index):
         img = self.data[index]
-        img = self.transformer(img)
+        img = F.normalize(img, self.data_mean, self.data_std)
         if self.labels is None:
             return img
         else:
@@ -244,11 +244,11 @@ class CelebAGenerator:
     def get_fed_dataset(self):
         tr_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_tr_data, None
-                            , self.image_size, self.tr_mean, self.tr_std
+                            , self.image_size, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
                             , True)
         ts_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_ts_data, None
-                            , self.image_size, self.tr_mean, self.tr_std
+                            , self.image_size, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
                             , False)
         return tr_set, ts_set
 
