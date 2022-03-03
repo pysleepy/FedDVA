@@ -104,15 +104,19 @@ with open(os.path.join(root_clients, "summary.txt"), 'w+') as f:
 client_tr_sets = [torch.load(os.path.join(root_clients, str(c_id), "data", dataset_name.value+'_tr.pt'))
                   for c_id in range(n_clients)]
 
+
+tr_loaders = [torch.utils.data.DataLoader(tr_dataset, batch_size=64, shuffle=True)
+              for tr_dataset in client_tr_sets]
+
 client_attr_map = []
 with open(os.path.join(root_clients, "summary.txt"), 'r') as f:
     for line in f:
         client_attr_map.append(line.strip().split())
 
-for c_id, tr_set in enumerate(client_tr_sets):
+for c_id, tr_set in enumerate(tr_loaders):
     plt.figure(c_id)
-    idx = np.random.randint(0, 500)
-    x = tr_set[idx]
+    x = next(iter(tr_loaders[c_id]))
+    x = x[0]
     plt.imshow(np.transpose(x.numpy(), [1, 2, 0]))
     plt.title(client_attr_map[c_id])
     plt.show()

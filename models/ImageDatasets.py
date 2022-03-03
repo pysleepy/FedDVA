@@ -34,7 +34,7 @@ class FedDataset(Dataset):
     def __init__(self, c_id, dataset_name
                  , tensor_data, tensor_labels
                  , img_size, data_mean, data_std
-                 , transformer, is_training):
+                 , is_training):
         """
 
         :param c_id:
@@ -44,7 +44,6 @@ class FedDataset(Dataset):
         :param img_size: (H x W x C)
         :param data_mean: (mean_c1, mean_c2, ...)
         :param data_std: (std_c1, std_c2, ...)
-        :param transformer: composed transformer
         :param is_training: is training set
         """
 
@@ -60,7 +59,7 @@ class FedDataset(Dataset):
         self.data_mean = data_mean
         self.data_std = data_std
 
-        self.transformer = transformer
+        self.transformer = transforms.Compose([transforms.Normalize(mean=self.data_mean, std=self.data_std)])
         self.is_training = is_training
 
     def __getitem__(self, index):
@@ -153,7 +152,6 @@ class MNISTGenerator:
         return tr_marks, ts_marks
 
     def get_fed_dataset(self, heter_x=False, heter_y=False):
-        transformer = transforms.Compose([transforms.Normalize(mean=self.tr_mean, std=self.tr_std)])
         if heter_x:
             logger.info("generate marks")
             tr_marks, ts_marks = self.__generate_marks__()
@@ -173,11 +171,11 @@ class MNISTGenerator:
         tr_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_tr_data, self.client_tr_labels
                             , self.image_size, self.tr_mean, self.tr_std
-                            , transformer, True)
+                            , True)
         ts_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_ts_data, self.client_ts_labels
                             , self.image_size, self.tr_mean, self.tr_std
-                            , transformer, False)
+                            , False)
         return tr_set, ts_set
 
 
@@ -244,16 +242,14 @@ class CelebAGenerator:
             self.image_size[0], self.image_size[1], self.image_size[2]))
 
     def get_fed_dataset(self):
-        transformer = transforms.Compose([transforms.Normalize(mean=self.tr_mean, std=self.tr_std)])
-
         tr_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_tr_data, None
                             , self.image_size, self.tr_mean, self.tr_std
-                            , transformer, True)
+                            , True)
         ts_set = FedDataset(self.client_id, self.dataset_name
                             , self.client_tr_data, None
                             , self.image_size, self.tr_mean, self.tr_std
-                            , transformer, False)
+                            , False)
         return tr_set, ts_set
 
 
