@@ -59,7 +59,7 @@ class FedDataset(Dataset):
         self.data_mean = data_mean
         self.data_std = data_std
 
-        self.transformer = transforms.Compose([transforms.Normalize(mean=self.data_mean, std=self.data_std)])
+        self.transformer = transforms.Normalize(mean=self.data_mean, std=self.data_std)
         self.is_training = is_training
 
     def __getitem__(self, index):
@@ -210,16 +210,16 @@ class CelebAGenerator:
         self.client_ts_data = []
 
         self.resize = resize
-        transformer = transforms.Compose([transforms.Resize(self.resize)
-                                          , transforms.CenterCrop(self.resize)
-                                          , transforms.ToTensor()])
+        transformerPIL = transforms.Compose([transforms.Resize(self.resize)
+                                            , transforms.CenterCrop(self.resize)
+                                            , transforms.ToTensor()])
 
         for img_idx in self.client_tr_list:
-            img = transformer(Image.open(os.path.join(self.path_to_data, img_idx))).unsqueeze(0)
+            img = transformerPIL(Image.open(os.path.join(self.path_to_data, img_idx))).unsqueeze(0)
             self.client_tr_data.append(img)
 
         for img_idx in self.client_ts_list:
-            img = transformer(Image.open(os.path.join(self.path_to_data, img_idx))).unsqueeze(0)
+            img = transformerPIL(Image.open(os.path.join(self.path_to_data, img_idx))).unsqueeze(0)
             self.client_ts_data.append(img)
 
         self.client_tr_data = torch.cat(self.client_tr_data, dim=0)
