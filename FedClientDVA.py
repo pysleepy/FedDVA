@@ -149,6 +149,7 @@ class FedClient:
             self.n_epc_ec_c += 1
             epoch_dec_c = []
             epoch_dkl_c = []
+            eooch_dkl_c_local = []
             epoch_constr_c = []
             for b_id, data in enumerate(tr_loader):
                 # loading data
@@ -171,7 +172,7 @@ class FedClient:
                 # rec loss
                 loss_dec_c = self.criterion_dec(x_hat, x)
                 mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
-                mu_c_prior_local = torch.ones_like(mu_c) * mu_c.mean(dim=0)
+                mu_c_prior_local = torch.ones_like(mu_c) * mu_c.mean(dim=0).detach()
                 log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
 
                 # tmp
@@ -185,6 +186,7 @@ class FedClient:
 
                 epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
                 epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
+                eooch_dkl_c_local.append(torch.mean(loss_dkl_c_local, dim=0).item())
                 epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
 
                 # 2022-02-24 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c \
@@ -192,7 +194,7 @@ class FedClient:
                 # 2022-03-03 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c_local \
                 # + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
                 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c_local \
-                    + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
+                    + self.lbd_cc * F.relu(self.xi + loss_dkl_c_local - loss_dkl_c)
 
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
@@ -204,6 +206,7 @@ class FedClient:
 
             self.logger.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec_c)))
             self.logger.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
+            self.logger.info('Epoch DKL c local Loss: ' + str(np.mean(eooch_dkl_c_local)))
             self.logger.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
 
     def generate(self, device, z, c):

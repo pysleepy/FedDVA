@@ -30,7 +30,7 @@ def generate_coordinates(n_row, n_col, min_z, max_z, min_c, max_c):
     return z, c, z_labels, c_labels
 
 
-loss_types = ["Decoder", "Decoder_z", "DKL z", "Decoder_c", "DKL c", "Constr c"]
+loss_types = ["Decoder", "Decoder_z", "DKL z", "Decoder_c", "DKL c", "DKL c local", "Constr c"]
 
 
 def parse_logs(client_root, c_id, log_name, loss_types):
