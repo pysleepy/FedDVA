@@ -70,11 +70,12 @@ data_root = os.path.join(base_path, "data/Images")
 path_list_annos = os.path.join(data_root, "CelebA/Anno/list_attr_celeba.txt")
 path_to_data = os.path.join(data_root, "CelebA/img_align_celeba")
 
-root_clients = os.path.join(base_path, "clients/CelebA_hairs")
+root_clients = os.path.join(base_path, "clients/CelebA_heter_4")
 
 # target_attr_list = {'Bald', 'Wearing_Hat', 'Eyeglasses', 'Blond_Hair', 'Mustache'}
-target_attr_list = ['Bald', 'Wearing_Hat', 'Receding_Hairline', 'Blond_Hair', 'Black_Hair']  # let clients vary on hairstyle
-n_clients = 10
+# target_attr_list = ['Bald', 'Wearing_Hat', 'Receding_Hairline', 'Blond_Hair', 'Black_Hair']  # let clients vary on hairstyle
+target_attr_list = ['Bald', 'Wearing_Hat', 'Eyeglasses', 'Blond_Hair']
+n_clients = 8
 
 
 df_image_index = load_CelebA_index(path_list_annos)

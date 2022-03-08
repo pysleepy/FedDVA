@@ -119,7 +119,7 @@ class MNISTGenerator:
             self.image_size[0], self.image_size[1], self.image_size[2]))
 
     def __generate_marks__(self):
-        m_type = int(self.client_id) % 5
+        m_type = int(self.client_id) % (5-1)
         tr_marks = torch.zeros_like(self.client_tr_data)
         ts_marks = torch.zeros_like(self.client_ts_data)
 
@@ -127,18 +127,18 @@ class MNISTGenerator:
         #     g_mark = partial(generate_line_marks
         #                      , image_size=self.image_size
         #                      , rate=0.25)
-        if m_type == 1:
-            g_mark = partial(generate_line_marks
-                             , image_size=self.image_size)
-        elif m_type == 2:
+        # if m_type == 1:
+        #     g_mark = partial(generate_line_marks
+        #                      , image_size=self.image_size)
+        if m_type == 2-1:
             g_mark = partial(generate_sin_marks
                              , image_size=self.image_size
                              , A=1., phase=None, period=1.)
-        elif m_type == 3:
+        elif m_type == 3-1:
             g_mark = partial(generate_sin_marks
                              , image_size=self.image_size
                              , A=1., phase=None, period=1., vertical=True)
-        elif m_type == 4:
+        elif m_type == 4-1:
             g_mark = partial(generate_ellipse_marks
                              , image_size=self.image_size, )
         else:
@@ -164,7 +164,7 @@ class MNISTGenerator:
 
         if heter_y:
             logger.info("offeset labels")
-            label_offset = int(self.client_id) % 5
+            label_offset = int(self.client_id) % (5-1)
             self.client_tr_labels = (self.client_tr_labels + label_offset) % self.n_classes
             self.client_ts_labels = (self.client_ts_labels + label_offset) % self.n_classes
 
