@@ -15,7 +15,7 @@ class MarkTypes(Enum):
     ELLIPSIS = "ellipsis"
 
 
-RESOLUTION = 0.1
+RESOLUTION = 0.2
 
 
 def allocate_supervised_data(alpha, n_total_clients, tr_label, ts_label):
