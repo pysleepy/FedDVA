@@ -16,6 +16,7 @@ class MarkTypes(Enum):
 
 
 RESOLUTION = 0.2
+# RESOLUTION = 0.1
 
 
 def allocate_supervised_data(alpha, n_total_clients, tr_label, ts_label):
