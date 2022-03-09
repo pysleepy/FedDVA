@@ -20,7 +20,7 @@ ch = logging.StreamHandler()
 logger.addHandler(ch)
 
 dataset_name = ImageDatasetName.MNIST
-n_total_clients = 8
+n_total_clients = 20
 alpha = 10000  # the larger the alpha is, the balance the label distributed on different clients
 heter_x = True
 heter_y = False
@@ -91,7 +91,7 @@ plt.show()
 client_tr_sets = [torch.load(os.path.join(client_root, str(c_id), "data", dataset_name.value+'_tr.pt'))
                   for c_id in range(n_total_clients)]
 
-for c_id in range(n_total_clients):
+for c_id in range(8):
     idx = np.random.randint(0, 1000)
     plt.figure("client: {:d}".format(c_id))
     img, label = client_tr_sets[c_id].data[idx], client_tr_sets[c_id].labels[idx]
