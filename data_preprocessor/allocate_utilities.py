@@ -15,6 +15,9 @@ class MarkTypes(Enum):
     ELLIPSIS = "ellipsis"
 
 
+RESOLUTION = 0.1
+
+
 def allocate_supervised_data(alpha, n_total_clients, tr_label, ts_label):
     """
     allocate data to each client through Dirichlet distribution
@@ -73,7 +76,7 @@ def allocate_supervised_data(alpha, n_total_clients, tr_label, ts_label):
     return client_idx_tr_samples, client_idx_ts_samples
 
 
-def generate_triangle_marks(idx, image_size, padding=1, degree=0.5, bias=1, resolution=0.2):
+def generate_triangle_marks(idx, image_size, padding=1, degree=0.5, bias=1, resolution=RESOLUTION):
     degree = np.random.uniform()
     bias = np.random.randint(0, 1000)
 
@@ -116,7 +119,7 @@ def generate_triangle_marks(idx, image_size, padding=1, degree=0.5, bias=1, reso
 
 def generate_sin_marks(idx, image_size, padding=1
                        , A=None, phase=None, period=None
-                       , vertical=False, resolution=0.2):
+                       , vertical=False, resolution=RESOLUTION):
     """
     draw sin marks
     A=1., phrase=1/3, period=1., bias=14.
@@ -154,7 +157,7 @@ def generate_sin_marks(idx, image_size, padding=1
     return idx, cor
 
 
-def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25, resolution=0.2):
+def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25, resolution=RESOLUTION):
     """
     draw ellipse marks
     :param
@@ -198,7 +201,7 @@ def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25, re
 
 
 def generate_line_marks(idx, image_size, padding=1
-                        , rate=None, bias_rate=None, resolution=0.2):
+                        , rate=None, bias_rate=None, resolution=RESOLUTION):
     """
     draw sin marks
     :param image_size
