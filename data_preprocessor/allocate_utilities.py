@@ -78,7 +78,7 @@ def allocate_supervised_data(alpha, n_total_clients, tr_label, ts_label):
 
 
 def generate_triangle_marks(idx, image_size, padding=1, degree=0.5, bias=1, resolution=RESOLUTION):
-    degree = np.random.uniform()
+    degree = np.random.rand()
     bias = np.random.randint(0, 1000)
 
     n_ch, n_row, n_col = image_size
@@ -134,9 +134,9 @@ def generate_sin_marks(idx, image_size, padding=1
     if A is None:
         A = -1. * np.random.uniform(0.1, 0.9)
     if phase is None:
-        phase = np.random.uniform()
+        phase = np.random.rand()
     if period is None:
-        period = np.random.uniform()
+        period = np.random.rand()
 
     n_ch, n_row, n_col = image_size
     x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
@@ -167,7 +167,7 @@ def generate_ellipse_marks(idx, image_size, padding=1, e=0.9, rot_angle=0.25, re
     :param rot_angle: rotation angle
     :return: image with marks, image of the marks
     """
-    rot_angle = np.random.uniform()
+    rot_angle = np.random.rand()
     n_ch, n_row, n_col = image_size
     x_max, y_max = n_col - 1 - padding, n_row - 1 - padding
 
