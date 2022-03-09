@@ -91,7 +91,7 @@ plt.show()
 client_tr_sets = [torch.load(os.path.join(client_root, str(c_id), "data", dataset_name.value+'_tr.pt'))
                   for c_id in range(n_total_clients)]
 
-for c_id in range(4):
+for c_id in range(n_total_clients):
     idx = np.random.randint(0, 1000)
     plt.figure("client: {:d}".format(c_id))
     img, label = client_tr_sets[c_id].data[idx], client_tr_sets[c_id].labels[idx]
