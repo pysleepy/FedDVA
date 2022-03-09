@@ -20,7 +20,7 @@ ch = logging.StreamHandler()
 logger.addHandler(ch)
 
 dataset_name = ImageDatasetName.MNIST
-n_total_clients = 20
+n_total_clients = 8
 alpha = 10000  # the larger the alpha is, the balance the label distributed on different clients
 heter_x = True
 heter_y = False
