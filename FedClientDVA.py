@@ -77,6 +77,7 @@ class FedClient:
 
         optimizer_decoder = self.optimizer(self.model.decoder.parameters(), lr=lr)
 
+        """
         self.logger.info("Optimizing Decoder")
         for ep in range(epoch_decoder):
             self.logger.info("Round: {:d}, Epoch Dec: {:d}".format(cur_round, ep))
@@ -103,6 +104,7 @@ class FedClient:
                 optimizer_decoder.step()
 
             self.logger.info('Epoch Decoder Loss: {:.4f}'.format(np.mean(epoch_loss_dec)))
+        """
 
         self.logger.info("Optimizing Encoder")
         for ep in range(epoch_encoder_z):
@@ -138,6 +140,7 @@ class FedClient:
                 loss = self.lbd_dec * loss_dec_z + self.lbd_z * loss_dkl_z
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
+                optimizer_decoder.step()  # tmp
                 optimizer_backbone_z.step()
                 optimizer_encoder_z.step()
 

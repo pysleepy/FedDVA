@@ -123,14 +123,14 @@ class MNISTGenerator:
         tr_marks = torch.zeros_like(self.client_tr_data)
         ts_marks = torch.zeros_like(self.client_ts_data)
 
-        # if m_type == 0:
-        #     g_mark = partial(generate_line_marks
-        #                      , image_size=self.image_size
-        #                      , rate=0.25)
+        if m_type == 0:
+            g_mark = partial(generate_line_marks
+                             , image_size=self.image_size
+                             , rate=0.25)
         # if m_type == 1:
         #     g_mark = partial(generate_line_marks
         #                      , image_size=self.image_size)
-        if m_type == 2-1:
+        elif m_type == 2-1:
             g_mark = partial(generate_sin_marks
                              , image_size=self.image_size
                              , A=1., phase=None, period=1.)
