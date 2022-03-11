@@ -76,7 +76,7 @@ root_clients = os.path.join(base_path, "clients/CelebA_hair_4")
 # target_attr_list = ['Bald', 'Wearing_Hat', 'Receding_Hairline', 'Blond_Hair', 'Black_Hair']  # let clients vary on hairstyle
 # target_attr_list = ['Bald', 'Wearing_Hat', 'Eyeglasses', 'Blond_Hair']
 target_attr_list = ['Bald', 'Wearing_Hat', 'Blond_Hair', 'Black_Hair']  # let clients vary on hairstyle
-n_clients = 8
+n_clients = 4
 
 
 df_image_index = load_CelebA_index(path_list_annos)
