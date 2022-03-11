@@ -17,7 +17,7 @@ def loss_dkl(mu, log_var, mu_prior, log_var_prior):
     # Equation (24)
     var_p = log_var_prior.exp()
     var = log_var.exp()
-    loss = (mu - mu_prior) ** 2 / (var_p + 1.) - (log_var - log_var_prior) + var / (var_p + 1.) - 1
+    loss = (mu - mu_prior) ** 2 / (var_p + 0.01) - (log_var - log_var_prior) + var / (var_p + 0.01)- 1.
     loss = 0.5 * torch.sum(loss, dim=1)
     return loss
 
@@ -33,11 +33,11 @@ def loss_reg_c(mu_c, log_var_c):
     var_c = log_var_c.exp()
     var_c_expand = var_c.expand(n_sample, n_sample, d_sample)
 
-    term_1 = (mu_c_expand.permute(1, 0, 2) - mu_c_expand.detach()) ** 2 / (var_c_expand.detach() + 1.)
+    term_1 = (mu_c_expand.permute(1, 0, 2) - mu_c_expand.detach()) ** 2 / (var_c_expand.detach() + 0.01)
 
     term_2 = - (log_var_c_expand.permute(1, 0, 2) - log_var_c_expand.detach())
 
-    term_3 = var_c_expand.permute(1, 0, 2) / (var_c_expand.detach() + 1.)
+    term_3 = var_c_expand.permute(1, 0, 2) / (var_c_expand.detach() + 0.01)
 
     loss = term_1 + term_2 + term_3 - 1
 
