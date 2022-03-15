@@ -110,6 +110,7 @@ class DualEncoderMNIST(DualEncoder):
         x_z = torch.flatten(x_z, start_dim=1)  # N x (hidden_dims[-1]H'W')
         mu_z, log_var_z = self.encoder_z(x_z)
         z = reparameter(mu_z, log_var_z)
+        """
         if not on_c:
             random_c = torch.zeros([2, x.shape[0], self.d_c], dtype=torch.float, device=x.device)
             mu_c, log_var_c = random_c[0], random_c[1]
@@ -120,6 +121,18 @@ class DualEncoderMNIST(DualEncoder):
             x_c = self.backbone_c(x_c)
             x_c = torch.flatten(x_c, start_dim=1)  # N x (hidden_dims[-1]H'W')
             mu_c, log_var_c = self.encoder_c(x_c)
+        """
+        # begin 2022-03-15
+        e_z = self.embedding_z(z.detach()).view(-1, self.in_h, self.in_w).unsqueeze(1)
+        e_x = self.embedding_x(x)
+        x_c = torch.cat([e_x, e_z], dim=1)
+        x_c = self.backbone_c(x_c)
+        x_c = torch.flatten(x_c, start_dim=1)  # N x (hidden_dims[-1]H'W')
+        mu_c, log_var_c = self.encoder_c(x_c)
+        if not on_c:
+            mu_c, log_var_c = torch.zeros_like(mu_c) + mu_c.mean(dim=0), torch.zeros_like(log_var_c)
+        # end 2022-03-15
+
         c = reparameter(mu_c, log_var_c)
         x_hat = self.decoder(torch.cat([z, c], dim=1))
         return x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c
