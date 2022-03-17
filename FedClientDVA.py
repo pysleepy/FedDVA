@@ -194,12 +194,8 @@ class FedClient:
                 # + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
                 # 2022-03-03 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c_local \
                 # + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
-                # 2022-03-17
-                # loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c_local \
-                #     + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
-                m = torch.ones_like(mu_c) * mu_c.mean(dim=0)
                 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c_local \
-                    + self.lbd_cc * F.relu(self.xi - loss_dkl(m, log_var_c, mu_c_prior_local, log_var_c_prior))
+                    + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
 
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
