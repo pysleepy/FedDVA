@@ -221,6 +221,7 @@ class FedClient:
 
     def fit_classifier(self, device, cur_round, tr_loader, epoch_classifier, lr):
         self.logger.info("Training Classifier")
+        self.model = self.model.to(device)
         self.classifier = self.classifier.to(device)
         self.classifier.train()
         criterion = nn.CrossEntropyLoss()
@@ -251,6 +252,7 @@ class FedClient:
 
     def evaluate_classify(self, device, ts_loader, n_resamples):
         self.logger.info("evaluate classifier")
+        self.model = self.model.to(device)
         self.classifier = self.classifier.to(device)
         self.classifier.eval()
         epoch_classifier = []
