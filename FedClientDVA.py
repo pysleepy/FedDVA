@@ -237,7 +237,7 @@ class FedClient:
                 x, y = x.to(device), y.to(device)
                 optimizer_classifier.zero_grad()
                 x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
-                y_hat = self.classifier(torch.cat([mu_c, mu_c], dim=1))
+                y_hat = self.classifier(torch.cat([mu_z.detach(), mu_c.detach()], dim=1))
                 # classifier loss
                 loss_classifier = criterion(y_hat, y)
                 epoch_loss_classifier.append(loss_classifier.item())
@@ -259,7 +259,7 @@ class FedClient:
             x, y = data
             x, y = x.to(device), y.to(device)
             x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
-            y_hat = self.classifier(torch.cat([mu_c, mu_c], dim=1))
+            y_hat = self.classifier(torch.cat([mu_z.detach(), mu_c.detach()], dim=1))
             loss_classifier = criterion(y_hat, y)
             epoch_classifier.append(loss_classifier.item())
             self.logger.info('Evaluate Decoder Loss: ' + str(np.mean(epoch_classifier)))
