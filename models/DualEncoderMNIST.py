@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.functional import F
 
-from models.DualEncoder import Backbone, Encoder, Decoder, DualEncoder
+from models.DualEncoder import Backbone, Encoder, Decoder, DualEncoder, Classifier
 from models.funcs import reparameter
 
 IN_H = 28
@@ -81,6 +81,20 @@ class DecoderMNIST(Decoder):
         for layer in self.layers:
             x = layer(x)
         return x
+
+
+class ClassifierMNIST(Classifier):
+    def __init__(self, d_in, d_out):
+        super(ClassifierMNIST, self).__init__()
+        self.d_in = d_in
+        self.d_out = d_out
+        self.fc_1 = nn.Linear(self.d_in, int(self.d_in / 2))
+        self.fc_2 = nn.Linear(int(self.d_in / 2), self.d_out)
+
+    def forward(self, x):
+        x = F.leaky_relu(self.fc_1(x))
+        outputs = F.softmax(self.fc_2(x))
+        return outputs
 
 
 class DualEncoderMNIST(DualEncoder):

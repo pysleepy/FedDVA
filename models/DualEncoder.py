@@ -29,6 +29,10 @@ class Decoder(nn.Module):
     pass
 
 
+class Classifier(nn.Module):
+    pass
+
+
 class DualEncoder(nn.Module):
     def generate(self, z, c):
         raise Exception("Function Not implemented")

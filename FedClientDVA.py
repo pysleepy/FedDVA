@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 import torch
+import torch.nn as nn
 from torch.functional import F
 from models.funcs import loss_dkl, loss_reg_c, loss_reg_c_2
 
@@ -11,7 +12,7 @@ from models.funcs import loss_dkl, loss_reg_c, loss_reg_c_2
 class FedClient:
     def __init__(self, client_id, shared_list, optimizer_func, criterion
                  , client_root, model_name, dual_encoder_model
-                 , xi, lbd_dec, lbd_z, lbd_c, lbd_cc):
+                 , xi, lbd_dec, lbd_z, lbd_c, lbd_cc, fed_classifier=None):
         self.client_id = int(client_id)
         self.shared_list = shared_list
         self.optimizer = optimizer_func
@@ -20,6 +21,7 @@ class FedClient:
         self.client_root = client_root
         self.model_name = model_name
         self.model = dual_encoder_model
+        self.classifier = fed_classifier
 
         self.path_to_snapshots = os.path.join(self.client_root, str(self.client_id), "snapshots")
         if self.client_id != -1 and not os.path.exists(self.path_to_snapshots):
@@ -216,6 +218,47 @@ class FedClient:
         self.model.eval()
         z, c = z.to(device), c.to(device)
         return self.model.generate(z, c)
+
+    def fit_classifier(self, device, cur_round, tr_loader, epoch_classifier, lr):
+        self.logger.info("Training Classifier")
+        self.classifier = self.classifier.to(device)
+        self.classifier.train()
+        criterion = nn.CrossEntropyLoss()
+        optimizer_classifier = self.optimizer(self.model.decoder.parameters(), lr=lr)
+
+        self.logger.info("Optimizing Classifier")
+        for ep in range(epoch_classifier):
+            self.logger.info("Round: {:d}, Epoch Dec: {:d}".format(cur_round, ep))
+            epoch_loss_classifier = []
+            for b_id, data in enumerate(tr_loader):
+                x, y = data
+                x, y = x.to(device), y.to(device)
+                optimizer_classifier.zero_grad()
+                x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
+                y_hat = self.classifier(z)
+                # classifier loss
+                loss_classifier = criterion(y_hat, y)
+                epoch_loss_classifier.append(loss_classifier.item())
+                loss_classifier.backward()
+                optimizer_classifier.step()
+
+            self.logger.info('Epoch Classifier Loss: {:.4f}'.format(np.mean(epoch_loss_classifier)))
+
+    def evaluate_classify(self, device, ts_loader, n_resamples):
+        self.logger.info("evaluate classifier")
+        self.classifier = self.model.to(device)
+        self.classifier.eval()
+        epoch_classifier = []
+        criterion = nn.CrossEntropyLoss()
+        for b_id, data in enumerate(ts_loader):
+            x, y = data
+            x, y = x.to(device), y.to(device)
+            x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
+            y_hat = self.classifier(z)
+            loss_classifier = criterion(y_hat, y)
+            epoch_classifier.append(loss_classifier.item())
+            self.logger.info('Evaluate Decoder Loss: ' + str(np.mean(epoch_classifier)))
+            return x, x_hat, y, y_hat, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def update_model(self, model_source):
         self.logger.info("update local models")
