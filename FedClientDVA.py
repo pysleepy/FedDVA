@@ -230,6 +230,8 @@ class FedClient:
         for ep in range(epoch_classifier):
             self.logger.info("Round: {:d}, Epoch Dec: {:d}".format(cur_round, ep))
             epoch_loss_classifier = []
+
+            correct = 0
             for b_id, data in enumerate(tr_loader):
                 x, y = data
                 x, y = x.to(device), y.to(device)
@@ -242,6 +244,9 @@ class FedClient:
                 loss_classifier.backward()
                 optimizer_classifier.step()
 
+                pred = y_hat.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+                correct += pred.eq(y.view_as(pred)).sum().item()
+            self.logger.info("Epoch Accuracy: {:.4f}".format(correct / len(tr_loader.dataset)))
             self.logger.info('Epoch Classifier Loss: {:.4f}'.format(np.mean(epoch_loss_classifier)))
 
     def evaluate_classify(self, device, ts_loader, n_resamples):
