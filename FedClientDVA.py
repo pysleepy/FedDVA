@@ -246,7 +246,7 @@ class FedClient:
 
     def evaluate_classify(self, device, ts_loader, n_resamples):
         self.logger.info("evaluate classifier")
-        self.classifier = self.model.to(device)
+        self.classifier = self.classifier.to(device)
         self.classifier.eval()
         epoch_classifier = []
         criterion = nn.CrossEntropyLoss()
