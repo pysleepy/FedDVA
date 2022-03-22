@@ -88,11 +88,13 @@ class ClassifierMNIST(Classifier):
         self.d_in = d_in
         self.d_out = d_out
         self.fc_1 = nn.Linear(self.d_in, int(self.d_in / 2))
-        self.fc_2 = nn.Linear(int(self.d_in / 2), self.d_out)
+        self.fc_2 = nn.Linear(int(self.d_in / 2), self.d_in)
+        self.fc_3 = nn.Linear(self.d_in, self.d_out)
 
     def forward(self, x):
         x = F.leaky_relu(self.fc_1(x))
-        outputs = F.softmax(self.fc_2(x))
+        x = F.leaky_relu(self.fc_2(x))
+        outputs = F.softmax(self.fc_3(x), dim=1)
         return outputs
 
 
