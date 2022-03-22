@@ -10,7 +10,6 @@ IN_W = 28
 IN_C = 1
 hidden_dims = [64, 64 * 2, 64 * 4, 64 * 8]
 
-
 class BackboneMNIST(Backbone):
     def __init__(self, in_channel, hidden_dims):
         super(BackboneMNIST, self).__init__()
