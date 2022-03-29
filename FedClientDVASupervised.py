@@ -311,6 +311,7 @@ class FedClient:
             epoch_dkl_z.append(torch.mean(loss_dkl_z, dim=0).item())
             epoch_dkl_c_local.append(torch.mean(loss_dkl_c_local, dim=0).item())
             epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
+            epoch_cls.append(torch.mean(loss_cls, dim=0).item())
 
             self.logger.info('Evaluate Decoder Loss: ' + str(np.mean(epoch_dec)))
             self.logger.info('Evaluate DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
