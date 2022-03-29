@@ -318,7 +318,7 @@ class FedClient:
             self.logger.info('Evaluate Constr c Loss : ' + str(np.mean(epoch_constr_c)))
 
             self.logger.info("Evaluate Classifier Loss: " + str(np.mean(epoch_cls)))
-            self.logger.info("Evaluate Accuracy Loss: " + ())
+            self.logger.info("Evaluate Accuracy Loss: " + str(epoch_correct / epoch_total))
 
             return x, y, x_hat, y_hat, z, c, mu_z, log_var_z, mu_c, log_var_c
 
