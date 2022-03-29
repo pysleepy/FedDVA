@@ -173,7 +173,7 @@ class FedClient:
             self.logger.info('Epoch Decoder_z Loss: ' + str(np.mean(epoch_dec_z)))
             self.logger.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
             self.logger.info('Epoch Classifier z Loss: ' + str(np.mean(epoch_cls_z)))
-            self.logger.info("Epoch Accuracy Loss: " + str(epoch_correct_z / epoch_total_z))
+            self.logger.info("Epoch Accuracy z Loss: " + str(epoch_correct_z / epoch_total_z))
 
         for ep in range(epoch_encoder_c):
             self.logger.info("Round: {:d}, Epoch Enc_c: {:d}".format(cur_round, ep))
@@ -247,7 +247,7 @@ class FedClient:
             self.logger.info('Epoch DKL c local Loss: ' + str(np.mean(eooch_dkl_c_local)))
             self.logger.info('Epoch Constr c Loss: ' + str(np.mean(epoch_constr_c)))
             self.logger.info('Epoch Classifier c Loss: ' + str(np.mean(epoch_cls_c)))
-            self.logger.info('Epoch Accuracy Loss: ' + str(epoch_correct_c / epoch_total_c))
+            self.logger.info('Epoch Accuracy c Loss: ' + str(epoch_correct_c / epoch_total_c))
 
     def generate(self, device, z, c):
         self.logger.info("generate samples")
