@@ -88,20 +88,18 @@ class ClassifierMNIST(Classifier):
         self.d_in = d_in
         self.d_out = d_out
         self.fc_1 = nn.Linear(self.d_in, int(self.d_in / 2))
-        self.fc_2 = nn.Linear(int(self.d_in / 2), self.d_in)
-        self.fc_3 = nn.Linear(self.d_in, self.d_out)
+        self.fc_2 = nn.Linear(int(self.d_in / 2), self.d_out)
 
     def forward(self, x):
-        x = F.leaky_relu(self.fc_1(x))
-        x = F.leaky_relu(self.fc_2(x))
-        outputs = F.softmax(self.fc_3(x), dim=1)
+        x = F.relu(self.fc_1(x))
+        outputs = F.softmax(self.fc_2(x), dim=1)
         return outputs
 
 
 class DualEncoderMNIST(DualEncoder):
     MODEL_TYPE = "DualEncoderMNIST"
 
-    def __init__(self, d_z, d_c):
+    def __init__(self, d_z, d_c, d_out):
         super(DualEncoderMNIST, self).__init__()
         self.in_h = IN_H
         self.in_w = IN_W
@@ -109,6 +107,7 @@ class DualEncoderMNIST(DualEncoder):
         self.hidden_dims = hidden_dims
         self.d_z = d_z
         self.d_c = d_c
+        self.d_out = d_out
 
         self.backbone_z = BackboneMNIST(self.in_channel, self.hidden_dims)
         self.encoder_z = Encoder(self.hidden_dims[-1], self.d_z)
@@ -119,6 +118,7 @@ class DualEncoderMNIST(DualEncoder):
         self.encoder_c = Encoder(self.hidden_dims[-1], self.d_c)
 
         self.decoder = DecoderMNIST(self.d_z + self.d_c, self.hidden_dims, self.in_channel)
+        self.classifier = ClassifierMNIST(self.d_z + self.d_c, self.d_out)
 
     def forward(self, x, on_c):
         x_z = self.backbone_z(x)
@@ -138,7 +138,8 @@ class DualEncoderMNIST(DualEncoder):
 
         c = reparameter(mu_c, log_var_c)
         x_hat = self.decoder(torch.cat([z, c], dim=1))
-        return x_hat, z,  c, mu_z, log_var_z, mu_c, log_var_c
+        y_hat = self.classifier(torch.cat([z, c], dim=1))
+        return x_hat, y_hat, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def generate(self, z, c):
         output = self.decoder(torch.cat([z, c], dim=1))

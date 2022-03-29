@@ -10,18 +10,18 @@ from models.funcs import loss_dkl, loss_reg_c, loss_reg_c_2
 
 
 class FedClient:
-    def __init__(self, client_id, shared_list, optimizer_func, criterion
+    def __init__(self, client_id, shared_list, optimizer_func, criterion_dec, criterion_cls
                  , client_root, model_name, dual_encoder_model
-                 , xi, lbd_dec, lbd_z, lbd_c, lbd_cc, fed_classifier=None):
+                 , xi, lbd_dec, lbd_z, lbd_c, lbd_cc, lbd_cls):
         self.client_id = int(client_id)
         self.shared_list = shared_list
         self.optimizer = optimizer_func
-        self.criterion_dec = criterion
+        self.criterion_dec = criterion_dec
+        self.criterion_cls = criterion_cls
 
         self.client_root = client_root
         self.model_name = model_name
         self.model = dual_encoder_model
-        self.classifier = fed_classifier
 
         self.path_to_snapshots = os.path.join(self.client_root, str(self.client_id), "snapshots")
         if self.client_id != -1 and not os.path.exists(self.path_to_snapshots):
@@ -56,6 +56,7 @@ class FedClient:
         self.lbd_z = lbd_z
         self.lbd_c = lbd_c
         self.lbd_cc = lbd_cc
+        self.lbd_cls = lbd_cls
 
         self.n_round = 0
         self.n_epc_ec_z = 0
@@ -78,33 +79,46 @@ class FedClient:
         optimizer_encoder_c = self.optimizer(self.model.encoder_c.parameters(), lr=lr)
 
         optimizer_decoder = self.optimizer(self.model.decoder.parameters(), lr=lr)
+        optimizer_classifier = self.optimizer(self.model.classifier.parameters(), lr=lr)
 
         self.logger.info("Optimizing Decoder")
         for ep in range(epoch_decoder):
             self.logger.info("Round: {:d}, Epoch Dec: {:d}".format(cur_round, ep))
             self.n_epc_dec += 1
             epoch_loss_dec = []
+            epoch_loss_cls = []
+            epoch_correct = 0.0
+            epoch_total = 0.0
             for b_id, data in enumerate(tr_loader):
                 # loading data
-                if type(data) == list:
-                    x, _ = data
-                else:
-                    x = data
-                x = x.to(device)
+                x, y = data
+                x, y = x.to(device), y.to(device)
                 if n_resamples > 0:
                     x = x.repeat(n_resamples, 1, 1, 1)
+                    y = y.repeat(n_resamples)
 
                 optimizer_decoder.zero_grad()
-                x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
+                optimizer_classifier.zero_grad()
+                x_hat, y_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
 
                 # rec loss
                 loss_dec = self.criterion_dec(x_hat, x)
+                loss_cls = self.criterion_cls(y_hat, y)
                 epoch_loss_dec.append(loss_dec.item())
-                loss_dec = self.lbd_dec * loss_dec
+                epoch_loss_cls.append(loss_cls.item())
+
+                pred = y_hat.argmax(dim=1, keepdim=True)
+                epoch_correct += pred.eq(y.view_as(pred)).sum().item()
+                epoch_total += y.shape[0]
+
+                loss_dec = self.lbd_dec * loss_dec + self.lbd_cls * loss_cls
                 loss_dec.backward()
                 optimizer_decoder.step()
+                optimizer_classifier.step()
 
             self.logger.info('Epoch Decoder Loss: {:.4f}'.format(np.mean(epoch_loss_dec)))
+            self.logger.info('Epoch Classifier Loss: {:.4f}'.format(np.mean(epoch_loss_cls)))
+            self.logger.info('Epoch Accuracy Loss: {:.4f}'.format(epoch_correct / epoch_total))
 
         self.logger.info("Optimizing Encoder")
         for ep in range(epoch_encoder_z):
@@ -112,32 +126,44 @@ class FedClient:
             self.n_epc_ec_z += 1
             epoch_dec_z = []
             epoch_dkl_z = []
+            epoch_cls_z = []
+            epoch_correct_z = 0.0
+            epoch_total_z = 0.0
+
             for b_id, data in enumerate(tr_loader):
-                # loading data
-                if type(data) == list:
-                    x, _ = data
-                else:
-                    x = data
-                x = x.to(device)
+                x, y = data
+                x, y = x.to(device), y.to(device)
                 if n_resamples > 0:
                     x = x.repeat(n_resamples, 1, 1, 1)
+                    y = y.repeat(n_resamples)
 
                 optimizer_backbone_z.zero_grad()
                 optimizer_encoder_z.zero_grad()
                 optimizer_decoder.zero_grad()
+                optimizer_classifier.zero_grad()
 
-                x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
+                x_hat, y_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, False)
 
                 # rec loss
                 loss_dec_z = self.criterion_dec(x_hat, x)
+
+                # cls loss
+                loss_cls_z = self.criterion_cls(y_hat, y)
+
+                # dkl
                 mu_z_prior = torch.zeros_like(mu_z, dtype=torch.float)
                 log_var_z_prior = torch.zeros_like(log_var_z, dtype=torch.float)
                 loss_dkl_z = loss_dkl(mu_z, log_var_z, mu_z_prior, log_var_z_prior)
 
                 epoch_dec_z.append(torch.mean(loss_dec_z, dim=0).item())
                 epoch_dkl_z.append(torch.mean(loss_dkl_z, dim=0).item())
+                epoch_cls_z.append(torch.mean(loss_cls_z, dim=0).item())
 
-                loss = self.lbd_dec * loss_dec_z + self.lbd_z * loss_dkl_z
+                pred = y_hat.argmax(dim=1, keepdim=True)
+                epoch_correct_z += pred.eq(y.view_as(pred)).sum().item()
+                epoch_total_z += y.shape[0]
+
+                loss = self.lbd_dec * loss_dec_z + self.lbd_z * loss_dkl_z + self.lbd_cls * loss_cls_z
                 loss = torch.mean(loss, dim=0)
                 loss.backward()
                 # optimizer_decoder.step()
@@ -146,6 +172,8 @@ class FedClient:
 
             self.logger.info('Epoch Decoder_z Loss: ' + str(np.mean(epoch_dec_z)))
             self.logger.info('Epoch DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
+            self.logger.info('Epoch Classifier z Loss: ' + str(np.mean(epoch_cls_z)))
+            self.logger.info("Epoch Accuracy Loss: " + str(epoch_correct_z / epoch_total_z))
 
         for ep in range(epoch_encoder_c):
             self.logger.info("Round: {:d}, Epoch Enc_c: {:d}".format(cur_round, ep))
@@ -154,49 +182,55 @@ class FedClient:
             epoch_dkl_c = []
             eooch_dkl_c_local = []
             epoch_constr_c = []
+
+            epoch_cls_c = []
+            epoch_correct_c = 0.0
+            epoch_total_c = 0.0
+
             for b_id, data in enumerate(tr_loader):
-                # loading data
-                if type(data) == list:
-                    x, _ = data
-                else:
-                    x = data
-                x = x.to(device)
+                x, y = data
+                x, y = x.to(device), y.to(device)
                 if n_resamples > 0:
                     x = x.repeat(n_resamples, 1, 1, 1)
+                    y = y.repeat(n_resamples)
 
                 optimizer_embedding_z.zero_grad()
                 optimizer_embedding_x.zero_grad()
                 optimizer_backbone_c.zero_grad()
                 optimizer_encoder_c.zero_grad()
                 optimizer_decoder.zero_grad()
+                optimizer_classifier.zero_grad()
 
-                x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
+                x_hat, y_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
 
                 # rec loss
                 loss_dec_c = self.criterion_dec(x_hat, x)
+
+                # classifier loss
+                loss_cls_c = self.criterion_cls(y_hat, y)
+
+                # dkl
                 mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
                 mu_c_prior_local = torch.ones_like(mu_c) * mu_c.mean(dim=0).detach()
                 log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
-
-                # tmp
                 loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)  # N(0, 1)
                 loss_dkl_c_local = loss_dkl(mu_c, log_var_c, mu_c_prior_local, log_var_c_prior)  # N(mu_c, 1)
-                loss_dkl_c_local_2 = loss_dkl(mu_c.detach(), log_var_c.detach(), mu_c_prior_local, log_var_c_prior)  # N(mu_c, 1)
-                loss_dkl_c_reverse = loss_dkl(mu_c_prior, log_var_c_prior, mu_c, log_var_c)
 
+                # constrain
                 loss_constr_c = loss_reg_c(mu_c, log_var_c)
-                loss_constr_c_2 = loss_reg_c_2(mu_c, log_var_c)
 
                 epoch_dec_c.append(torch.mean(loss_dec_c, dim=0).item())
                 epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
                 eooch_dkl_c_local.append(torch.mean(loss_dkl_c_local, dim=0).item())
                 epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
+                epoch_cls_c.append(torch.mean(loss_cls_c, dim=0).item())
 
-                # 2022-02-24 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c \
-                # + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
-                # 2022-03-03 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c_local \
-                # + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
+                pred = y_hat.argmax(dim=1, keepdim=True)
+                epoch_correct_c += pred.eq(y.view_as(pred)).sum().item()
+                epoch_total_c += y.shape[0]
+
                 loss = self.lbd_dec * loss_dec_c + self.lbd_c * loss_dkl_c_local \
+                    + self.lbd_cls * loss_cls_c \
                     + self.lbd_cc * F.relu(self.xi + loss_constr_c - loss_dkl_c)
 
                 loss = torch.mean(loss, dim=0)
@@ -206,11 +240,14 @@ class FedClient:
                 optimizer_backbone_c.step()
                 optimizer_encoder_c.step()
                 optimizer_decoder.step()
+                optimizer_classifier.step()
 
             self.logger.info('Epoch Decoder_c Loss: ' + str(np.mean(epoch_dec_c)))
             self.logger.info('Epoch DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
             self.logger.info('Epoch DKL c local Loss: ' + str(np.mean(eooch_dkl_c_local)))
-            self.logger.info('Epoch Constr c Loss : ' + str(np.mean(epoch_constr_c)))
+            self.logger.info('Epoch Constr c Loss: ' + str(np.mean(epoch_constr_c)))
+            self.logger.info('Epoch Classifier c Loss: ' + str(np.mean(epoch_cls_c)))
+            self.logger.info('Epoch Accuracy Loss: ' + str(epoch_correct_c / epoch_total_c))
 
     def generate(self, device, z, c):
         self.logger.info("generate samples")
@@ -218,54 +255,6 @@ class FedClient:
         self.model.eval()
         z, c = z.to(device), c.to(device)
         return self.model.generate(z, c)
-
-    def fit_classifier(self, device, cur_round, tr_loader, epoch_classifier, lr):
-        self.logger.info("Training Classifier")
-        self.model = self.model.to(device)
-        self.classifier = self.classifier.to(device)
-        self.classifier.train()
-        criterion = nn.CrossEntropyLoss()
-        optimizer_classifier = self.optimizer(self.model.decoder.parameters(), lr=lr)
-
-        self.logger.info("Optimizing Classifier")
-        for ep in range(epoch_classifier):
-            self.logger.info("Round: {:d}, Epoch Dec: {:d}".format(cur_round, ep))
-            epoch_loss_classifier = []
-
-            correct = 0
-            for b_id, data in enumerate(tr_loader):
-                x, y = data
-                x, y = x.to(device), y.to(device)
-                optimizer_classifier.zero_grad()
-                x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
-                y_hat = self.classifier(torch.cat([mu_z.detach(), mu_c.detach()], dim=1))
-                # classifier loss
-                loss_classifier = criterion(y_hat, y)
-                epoch_loss_classifier.append(loss_classifier.item())
-                loss_classifier.backward()
-                optimizer_classifier.step()
-
-                pred = y_hat.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-                correct += pred.eq(y.view_as(pred)).sum().item()
-            self.logger.info("Epoch Accuracy: {:.4f}".format(correct / len(tr_loader.dataset)))
-            self.logger.info('Epoch Classifier Loss: {:.4f}'.format(np.mean(epoch_loss_classifier)))
-
-    def evaluate_classify(self, device, ts_loader, n_resamples):
-        self.logger.info("evaluate classifier")
-        self.model = self.model.to(device)
-        self.classifier = self.classifier.to(device)
-        self.classifier.eval()
-        epoch_classifier = []
-        criterion = nn.CrossEntropyLoss()
-        for b_id, data in enumerate(ts_loader):
-            x, y = data
-            x, y = x.to(device), y.to(device)
-            x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
-            y_hat = self.classifier(torch.cat([mu_z.detach(), mu_c.detach()], dim=1))
-            loss_classifier = criterion(y_hat, y)
-            epoch_classifier.append(loss_classifier.item())
-            self.logger.info('Evaluate Decoder Loss: ' + str(np.mean(epoch_classifier)))
-            return x, x_hat, y, y_hat, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def update_model(self, model_source):
         self.logger.info("update local models")
@@ -281,43 +270,57 @@ class FedClient:
         self.model.eval()
         epoch_dec = []
         epoch_dkl_z = []
-        epoch_dkl_c = []
+        epoch_dkl_c_local = []
         epoch_constr_c = []
+        epoch_cls = []
+        epoch_correct = 0.0
+        epoch_total = 0.0
 
         for b_id, data in enumerate(ts_loader):
             # loading data
-            if type(data) == list:
-                x, _ = data
-            else:
-                x = data
-            x = x.to(device)
+            x, y = data
+            x, y = x.to(device), y.to(device)
             if n_resamples > 0:
                 x = x.repeat(n_resamples, 1, 1, 1)
+                y = y.repeat(n_resamples)
 
-            x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
+            x_hat, y_hat, z, c, mu_z, log_var_z, mu_c, log_var_c = self.model(x, True)
 
             # rec loss
             loss_dec = self.criterion_dec(x_hat, x)
 
+            # cls loss
+            loss_cls = self.criterion_cls(y_hat, y)
+
+            # dkl z
             mu_z_prior = torch.zeros_like(mu_z, dtype=torch.float)
             log_var_z_prior = torch.zeros_like(log_var_z, dtype=torch.float)
             loss_dkl_z = loss_dkl(mu_z, log_var_z, mu_z_prior, log_var_z_prior)
 
-            mu_c_prior = torch.zeros_like(mu_c, dtype=torch.float)
+            # dkl c
+            mu_c_prior_local = torch.ones_like(mu_c) * mu_c.mean(dim=0).detach()
             log_var_c_prior = torch.zeros_like(log_var_c, dtype=torch.float)
-            loss_dkl_c = loss_dkl(mu_c, log_var_c, mu_c_prior, log_var_c_prior)
+            loss_dkl_c_local = loss_dkl(mu_c, log_var_c, mu_c_prior_local, log_var_c_prior)
             loss_constr_c = loss_reg_c(mu_c, log_var_c)
+
+            pred = y_hat.argmax(dim=1, keepdim=True)
+            epoch_correct += pred.eq(y.view_as(pred)).sum().item()
+            epoch_total += y.shape[0]
 
             epoch_dec.append(torch.mean(loss_dec, dim=0).item())
             epoch_dkl_z.append(torch.mean(loss_dkl_z, dim=0).item())
-            epoch_dkl_c.append(torch.mean(loss_dkl_c, dim=0).item())
+            epoch_dkl_c_local.append(torch.mean(loss_dkl_c_local, dim=0).item())
             epoch_constr_c.append(torch.mean(loss_constr_c, dim=0).item())
 
             self.logger.info('Evaluate Decoder Loss: ' + str(np.mean(epoch_dec)))
             self.logger.info('Evaluate DKL z Loss: ' + str(np.mean(epoch_dkl_z)))
-            self.logger.info('Evaluate DKL c Loss: ' + str(np.mean(epoch_dkl_c)))
+            self.logger.info('Evaluate DKL c Loss: ' + str(np.mean(epoch_dkl_c_local)))
             self.logger.info('Evaluate Constr c Loss : ' + str(np.mean(epoch_constr_c)))
-            return x, x_hat, z, c, mu_z, log_var_z, mu_c, log_var_c
+
+            self.logger.info("Evaluate Classifier Loss: " + str(np.mean(epoch_cls)))
+            self.logger.info("Evaluate Accuracy Loss: " + ())
+
+            return x, y, x_hat, y_hat, z, c, mu_z, log_var_z, mu_c, log_var_c
 
     def upload_model(self):
         self.logger.info("upload local model")
