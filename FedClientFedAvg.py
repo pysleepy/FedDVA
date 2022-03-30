@@ -47,7 +47,7 @@ class FedClient:
             self.logger.info('Initialize client')
             self.logger.info("model name: " + str(self.model_name))
             self.logger.info("model type: " + str(self.model.MODEL_TYPE))
-            self.logger.info("d_latent_z: {:d}, d_latent_c: {:d}".format(self.model.d_z, self.model.d_c))
+            self.logger.info("d_in: {:d},".format(self.model.d_in))
 
         self.n_round = 0
         self.n_epc_cls = 0
