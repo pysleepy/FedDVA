@@ -75,7 +75,7 @@ class FedClient:
                 x, y = data
                 x, y = x.to(device), y.to(device)
                 optimizer_classifier.zero_grad()
-                y_hat = self.model(x, False)
+                y_hat = self.model(x)
 
                 # rec loss
                 loss_cls = self.criterion_cls(y_hat, y)
@@ -107,7 +107,7 @@ class FedClient:
                 optimizer_encoder.zero_grad()
                 optimizer_classifier.zero_grad()
 
-                y_hat = self.model(x, False)
+                y_hat = self.model(x)
 
                 # cls loss
                 loss_cls = self.criterion_cls(y_hat, y)
@@ -135,7 +135,7 @@ class FedClient:
                 named_para_target[1].data = named_para_source[1].detach().clone().data
         return self.model
 
-    def evaluate(self, device, ts_loader, n_resamples):
+    def evaluate(self, device, ts_loader):
         self.logger.info("evaluate models")
         self.model = self.model.to(device)
         self.model.eval()
@@ -147,7 +147,7 @@ class FedClient:
             # loading data
             x, y = data
             x, y = x.to(device), y.to(device)
-            y_hat = self.model(x, True)
+            y_hat = self.model(x)
 
             # cls loss
             loss_cls = self.criterion_cls(y_hat, y)
