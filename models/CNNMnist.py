@@ -86,7 +86,7 @@ class CNNMnist(nn.Module):
         self.d_out = d_out
 
         self.backbone = BackboneMNIST(self.in_channel, self.hidden_dims)
-        self.encoder = EncoderMNIST(self.hidden_dims[-1], self.d_z)
+        self.encoder = EncoderMNIST(self.hidden_dims[-1], self.d_in)
 
         self.classifier = ClassifierMNIST(self.d_in, self.d_out)
 
