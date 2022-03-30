@@ -76,19 +76,19 @@ class ClassifierMNIST(nn.Module):
 class CNNMnist(nn.Module):
     MODEL_TYPE = "CNNMNIST"
 
-    def __init__(self, d_z, d_out):
+    def __init__(self, d_in, d_out):
         super(CNNMnist, self).__init__()
         self.in_h = IN_H
         self.in_w = IN_W
         self.in_channel = IN_C
         self.hidden_dims = hidden_dims
-        self.d_z = d_z
+        self.d_in = d_in
         self.d_out = d_out
 
         self.backbone = BackboneMNIST(self.in_channel, self.hidden_dims)
         self.encoder = EncoderMNIST(self.hidden_dims[-1], self.d_z)
 
-        self.classifier = ClassifierMNIST(self.d_z, self.d_out)
+        self.classifier = ClassifierMNIST(self.d_in, self.d_out)
 
     def forward(self, x):
         x = self.backbone(x)
