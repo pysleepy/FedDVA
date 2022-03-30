@@ -7,7 +7,7 @@ from models.funcs import reparameter
 IN_H = 28
 IN_W = 28
 IN_C = 1
-hidden_dims = [64, 64 * 2, 64 * 4, 64 * 8]
+hidden_dims = [64 * 2, 64 * 2 * 2, 64 * 4 * 2, 64 * 8 * 2]
 
 
 class BackboneMNIST(nn.Module):
