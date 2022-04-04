@@ -64,3 +64,36 @@ def parse_logs(client_root, c_id, log_name, loss_types):
 
         plt.legend()
         plt.show()
+
+
+def parse_multiple_logs(client_root, c_id, log_names, loss_type):
+    epc_per_round = 5
+    loss = dict()
+    tmp_loss = dict()
+
+    for log_name in log_names:
+        path_to_log = os.path.join(client_root, str(c_id), "logs", log_name)
+        loss[log_name] = []
+        tmp_loss[log_name] = []
+
+        with open(path_to_log) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("Epoch"):
+                    line = line.split("Epoch")[1].strip()
+                    k, v = line.split("Loss")
+                    k, v = k.strip(), float(v.strip().strip(":").strip())
+                    if k == loss_type:
+                        tmp_loss[log_name].append(v)
+                        if len(tmp_loss[log_name]) % epc_per_round == 0:
+                            loss[log_name].append(np.mean(tmp_loss[log_name]))
+                            tmp_loss[log_name] = []
+
+        plt.figure()
+        plt.title(loss_type + " " + "Client: {:d}".format(c_id))
+        for log_name in log_names:
+            plt.plot(loss[log_name], label=log_name)
+        # plt.legend(handles=[l1, l2], labels=['dec_c', 'dec_z'], loc='best')
+
+        plt.legend()
+        plt.show()
