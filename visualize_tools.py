@@ -135,7 +135,6 @@ def parse_multiple_logs(client_root, c_id, log_names, loss_type):
     for log_name in log_names:
         plt.plot(loss[log_name], label=log_name)
         # plt.legend(handles=[l1, l2], labels=['dec_c', 'dec_z'], loc='best')
-
-    plt.ylim(0.8, 1.0)
+        plt.ylim(0.8, 1.0)
     plt.legend()
     plt.show()
