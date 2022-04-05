@@ -131,11 +131,11 @@ def parse_multiple_logs(client_root, c_id, log_names, loss_type):
                             loss[log_name].append(np.mean(tmp_loss[log_name]))
                             tmp_loss[log_name] = []
 
-        plt.figure()
-        plt.title(loss_type + " " + "Client: {:d}".format(c_id))
-        for log_name in log_names:
-            plt.plot(loss[log_name], label=log_name)
+    plt.figure()
+    plt.title(loss_type + " " + "Client: {:d}".format(c_id))
+    for log_name in log_names:
+        plt.plot(loss[log_name], label=log_name)
         # plt.legend(handles=[l1, l2], labels=['dec_c', 'dec_z'], loc='best')
 
-        plt.legend()
-        plt.show()
+    plt.legend()
+    plt.show()
