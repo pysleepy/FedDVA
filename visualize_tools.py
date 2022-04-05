@@ -113,7 +113,6 @@ def parse_multiple_logs(client_root, c_id, log_names, loss_type):
     tmp_loss = dict()
 
     for log_name in log_names:
-        print(log_name)
         path_to_log = os.path.join(client_root, str(c_id), "logs", log_name)
         loss[log_name] = []
         tmp_loss[log_name] = []
@@ -137,6 +136,6 @@ def parse_multiple_logs(client_root, c_id, log_names, loss_type):
         plt.plot(loss[log_name], label=log_name)
         # plt.legend(handles=[l1, l2], labels=['dec_c', 'dec_z'], loc='best')
 
-    plt.ylim(np.arange(0.8, 1, 0.01))
+    plt.ylim(0.8, 1.0)
     plt.legend()
     plt.show()
